@@ -56,7 +56,7 @@ function cabecalhosSeguranca(res, { permitirInlineStyle = false } = {}) {
   res.setHeader(
     'Content-Security-Policy',
     `default-src 'self'; ${styleSrc}; font-src 'self' https://fonts.gstatic.com; ` +
-      "img-src 'self' data:; script-src 'self'; connect-src 'self' https://*.vercel-storage.com; " +
+      "img-src 'self' data:; script-src 'self'; connect-src 'self' https://vercel.com https://*.vercel-storage.com; "+
       "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
   );
 }
