@@ -1,0 +1,14 @@
+.env
+.env.local
+.env.*.local
+.vercel/
+node_modules/
+public/script.js
+npm-debug.log*
+.DS_Store
+
+# Arquivos da versao antiga (SQLite / disco local)
+agendamento.db
+agendamento.db-shm
+agendamento.db-wal
+uploads/
