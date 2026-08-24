@@ -617,84 +617,197 @@ async function prepararSolicitacao(
   let preparado;
 
   if (
-    servico ===
-      SERVICOS.HOSPEDAGEM_CAO ||
-    servico ===
-      SERVICOS.HOSPEDAGEM_GATO
-  ) {
-    const entradaISO =
-      dataFuturaOuHoje(
-        detalhes.dataEntrada,
-        'A data de entrada'
-      );
+  servico ===
+    SERVICOS.HOSPEDAGEM_CAO ||
+  servico ===
+    SERVICOS.HOSPEDAGEM_GATO
+) {
+  const entradaISO =
+    dataFuturaOuHoje(
+      detalhes.dataEntrada,
+      'A data de entrada'
+    );
 
-    const diarias =
-      inteiro(
-        detalhes.diarias,
-        'Quantidade de diárias',
-        1,
-        MAX_DIAS_HOSPEDAGEM
-      );
+  const saidaISO =
+    dataFuturaOuHoje(
+      detalhes.dataSaida,
+      'A data de checkout'
+    );
 
-    const quantidadePets =
-      inteiro(
-        detalhes.quantidadePets,
-        'Quantidade de pets',
-        1,
-        MAX_PETS_POR_RESERVA
-      );
+  const horaEntrada =
+    hora(
+      detalhes.horaEntrada,
+      'Horário de entrada'
+    );
 
-    const saidaISO =
-      adicionarDiasISO(
-        entradaISO,
-        diarias
-      );
+  const horaSaida =
+    hora(
+      detalhes.horaSaida,
+      'Horário de retirada'
+    );
 
-    const pets =
-      normalizarPets(
-        servico,
-        payload.pets,
-        quantidadePets
-      );
+  const quantidadePets =
+    inteiro(
+      detalhes.quantidadePets,
+      'Quantidade de pets',
+      1,
+      MAX_PETS_POR_RESERVA
+    );
 
-    preparado = {
-      servico,
+  /*
+   * A DATA DE CHECKOUT vem diretamente
+   * do cliente.
+   *
+   * Não fazemos mais:
+   *
+   * entrada + diárias = checkout
+   *
+   * As diárias são calculadas a partir
+   * do período real entre entrada e saída.
+   */
 
-      entradaISO,
-
+  if (
+    compararDatasISO(
       saidaISO,
+      entradaISO
+    ) < 0
+  ) {
+    throw new DomainError(
+      'A data de checkout não pode ser anterior à data de entrada.',
+      'PERIODO_INVALIDO'
+    );
+  }
 
-      horaEntrada:
-        hora(
-          detalhes.horaEntrada,
-          'Horário de entrada'
-        ),
+  /*
+   * Converte HH:MM para minutos.
+   */
+  const minutosDoHorario =
+    (horario) => {
+      const partes =
+        horario
+          .split(':')
+          .map(Number);
 
-      horaSaida:
-        hora(
-          detalhes.horaSaida,
-          'Horário de retirada'
-        ),
+      return (
+        partes[0] * 60 +
+        partes[1]
+      );
+    };
 
-      quantidadePets,
+  const entradaMinutos =
+    minutosDoHorario(
+      horaEntrada
+    );
 
-      quantidadeDias:
-        diarias,
+  const saidaMinutos =
+    minutosDoHorario(
+      horaSaida
+    );
 
+  /*
+   * Diferença entre as datas.
+   */
+  const dataEntrada =
+    new Date(
+      `${entradaISO}T00:00:00Z`
+    );
+
+  const dataSaida =
+    new Date(
+      `${saidaISO}T00:00:00Z`
+    );
+
+  const diferencaDias =
+    Math.round(
+      (
+        dataSaida.getTime() -
+        dataEntrada.getTime()
+      ) / 86400000
+    );
+
+  /*
+   * Diferença total em horas,
+   * considerando também os horários.
+   */
+  const diferencaHoras =
+    (
+      diferencaDias * 24
+    ) +
+    (
+      saidaMinutos -
+      entradaMinutos
+    ) / 60;
+
+  /*
+   * Cada período iniciado de 24 horas
+   * conta como uma diária.
+   *
+   * Exemplos:
+   *
+   * 05/09 07:00 → 06/09 07:00 = 1
+   * 05/09 07:00 → 07/09 07:00 = 2
+   * 05/09 07:00 → 07/09 22:00 = 3
+   */
+  const diarias =
+    Math.max(
+      1,
+      Math.ceil(
+        diferencaHoras / 24
+      )
+    );
+
+  if (
+    diarias >
+    MAX_DIAS_HOSPEDAGEM
+  ) {
+    throw new DomainError(
+      `A hospedagem pode ter no máximo ${MAX_DIAS_HOSPEDAGEM} diárias.`,
+      'PERIODO_MUITO_LONGO'
+    );
+  }
+
+  const pets =
+    normalizarPets(
+      servico,
+      payload.pets,
+      quantidadePets
+    );
+
+  preparado = {
+    servico,
+
+    entradaISO,
+
+    saidaISO,
+
+    horaEntrada,
+
+    horaSaida,
+
+    quantidadePets,
+
+    /*
+     * Mantemos os dois campos porque
+     * o restante do sistema utiliza
+     * quantidadeDias e diarias.
+     */
+    quantidadeDias:
       diarias,
 
-      pets,
+    diarias,
 
-      endereco: null,
+    pets,
 
-      visitasDia: null,
+    endereco: null,
 
-      frequenciaSemanal:
-        null,
+    visitasDia: null,
 
-      diasSemana: [],
-    };
-  } else if (
+    frequenciaSemanal:
+      null,
+
+    diasSemana: [],
+  };
+} else if (
     servico ===
     SERVICOS.CRECHE
   ) {
