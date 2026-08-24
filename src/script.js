@@ -121,6 +121,50 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
     return Math.round((b - a) / 86400000) + 1;
   }
 
+  function calculateHotelNights(
+  dataEntrada,
+  horaEntrada,
+  dataSaida,
+  horaSaida
+) {
+  if (
+    !dataEntrada ||
+    !horaEntrada ||
+    !dataSaida ||
+    !horaSaida
+  ) {
+    return 0;
+  }
+
+  const entrada = new Date(
+    `${dataEntrada}T${horaEntrada}:00`
+  );
+
+  const saida = new Date(
+    `${dataSaida}T${horaSaida}:00`
+  );
+
+  if (
+    Number.isNaN(entrada.getTime()) ||
+    Number.isNaN(saida.getTime()) ||
+    saida < entrada
+  ) {
+    return 0;
+  }
+
+  const diffMs =
+    saida.getTime() -
+    entrada.getTime();
+
+  const horas =
+    diffMs / (1000 * 60 * 60);
+
+  return Math.max(
+    1,
+    Math.ceil(horas / 24)
+  );
+}
+
   function serviceAnimationMarkup(service) {
     const scenes = {
       hospedagem_cao: `
@@ -973,257 +1017,268 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
       `Detalhes — ${SERVICE_LABELS[state.service]}`;
 
     if (
-      state.service ===
-        'hospedagem_cao' ||
-      state.service ===
-        'hospedagem_gato'
-    ) {
-      hint.textContent =
-        'Cada diária custa R$ 60,00 por pet e corresponde ao período contratado. Informe o horário previsto de retirada para registrar o checkout.';
+  state.service ===
+    'hospedagem_cao' ||
+  state.service ===
+    'hospedagem_gato'
+) {
+  hint.textContent =
+    'A quantidade de diárias é calculada automaticamente considerando a data e o horário de entrada e a data e o horário de checkout.';
 
-      const checkout =
-        state.details.dataEntrada &&
-        state.details.diarias
-          ? addDaysISO(
-              state.details.dataEntrada,
-              state.details.diarias
-            )
-          : '';
+  container.innerHTML = `
+    <div class="field-grid">
+      <div class="field">
+        <label for="dataEntrada">
+          Data de entrada
+        </label>
 
-      container.innerHTML = `
-        <div class="field-grid">
-          <div class="field">
-            <label for="dataEntrada">
-              Data de entrada
-            </label>
-
-            <input
-              type="date"
-              id="dataEntrada"
-              min="${config.hoje}"
-              value="${escapeHTML(
-                state.details.dataEntrada ||
-                  ''
-              )}"
-            >
-          </div>
-
-          <div class="field">
-            <label for="horaEntrada">
-              Horário de entrada
-            </label>
-
-            <input
-              type="time"
-              id="horaEntrada"
-              value="${escapeHTML(
-                state.details.horaEntrada ||
-                  ''
-              )}"
-            >
-          </div>
-        </div>
-
-        <div class="field-grid">
-          <div class="field">
-            <label for="diarias">
-              Quantidade de diárias
-            </label>
-
-            <input
-              type="number"
-              id="diarias"
-              min="1"
-              max="${config.maxDiasHospedagem}"
-              value="${escapeHTML(
-                state.details.diarias ||
-                  1
-              )}"
-            >
-          </div>
-
-          <div class="field">
-            <label for="checkoutCalculado">
-              Data de checkout
-            </label>
-
-            <input
-              type="date"
-              id="checkoutCalculado"
-              value="${escapeHTML(checkout)}"
-              disabled
-            >
-          </div>
-        </div>
-
-        <div class="field-grid">
-          <div class="field">
-            <label for="horaSaida">
-              Horário de retirada
-            </label>
-
-            <input
-              type="time"
-              id="horaSaida"
-              value="${escapeHTML(
-                state.details.horaSaida ||
-                  ''
-              )}"
-            >
-          </div>
-
-          <div class="field">
-            <label for="quantidadePets">
-              Quantidade de pets
-            </label>
-
-            <input
-              type="number"
-              id="quantidadePets"
-              min="1"
-              max="${config.maxPets}"
-              value="${escapeHTML(
-                state.details.quantidadePets ||
-                  1
-              )}"
-            >
-          </div>
-        </div>
-
-        <div
-          class="notice notice-warning"
-          id="checkoutPolicyNotice"
-          hidden
+        <input
+          type="date"
+          id="dataEntrada"
+          min="${config.hoje}"
+          value="${escapeHTML(
+            state.details.dataEntrada ||
+              ''
+          )}"
         >
-          <strong>
-            ⚠️ Atenção ao horário de checkout
-          </strong>
+      </div>
 
-          <p id="checkoutPolicyText"></p>
-        </div>
+      <div class="field">
+        <label for="horaEntrada">
+          Horário de entrada
+        </label>
 
-        <p
-          class="inline-calculation"
-          id="hotelCalculation"
-        ></p>
-      `;
+        <input
+          type="time"
+          id="horaEntrada"
+          value="${escapeHTML(
+            state.details.horaEntrada ||
+              ''
+          )}"
+        >
+      </div>
+    </div>
 
-      const update = () => {
-        const start =
-          document
-            .getElementById(
-              'dataEntrada'
-            )
-            .value;
+    <div class="field-grid">
+      <div class="field">
+        <label for="diarias">
+          Quantidade de diárias
+        </label>
 
-        const days =
-          Number(
-            document
-              .getElementById(
-                'diarias'
-              )
-              .value || 0
-          );
+        <input
+          type="number"
+          id="diarias"
+          min="1"
+          max="${config.maxDiasHospedagem}"
+          value="${escapeHTML(
+            state.details.diarias ||
+              ''
+          )}"
+          readonly
+        >
+      </div>
 
-        const pets =
-          Number(
-            document
-              .getElementById(
-                'quantidadePets'
-              )
-              .value || 0
-          );
+      <div class="field">
+        <label for="dataSaida">
+          Data de checkout
+        </label>
 
-        const checkoutTime =
-          document
-            .getElementById(
-              'horaSaida'
-            )
-            .value;
+        <input
+          type="date"
+          id="dataSaida"
+          min="${config.hoje}"
+          value="${escapeHTML(
+            state.details.dataSaida ||
+              ''
+          )}"
+        >
+      </div>
+    </div>
 
+    <div class="field-grid">
+      <div class="field">
+        <label for="horaSaida">
+          Horário de retirada
+        </label>
+
+        <input
+          type="time"
+          id="horaSaida"
+          value="${escapeHTML(
+            state.details.horaSaida ||
+              ''
+          )}"
+        >
+      </div>
+
+      <div class="field">
+        <label for="quantidadePets">
+          Quantidade de pets
+        </label>
+
+        <input
+          type="number"
+          id="quantidadePets"
+          min="1"
+          max="${config.maxPets}"
+          value="${escapeHTML(
+            state.details.quantidadePets ||
+              1
+          )}"
+        >
+      </div>
+    </div>
+
+    <div
+      class="notice notice-warning"
+      id="checkoutPolicyNotice"
+      hidden
+    >
+      <strong>
+        ⚠️ Atenção ao horário de checkout
+      </strong>
+
+      <p id="checkoutPolicyText"></p>
+    </div>
+
+    <p
+      class="inline-calculation"
+      id="hotelCalculation"
+    ></p>
+  `;
+
+  const update = () => {
+    const dataEntrada =
+      document
+        .getElementById(
+          'dataEntrada'
+        )
+        .value;
+
+    const horaEntrada =
+      document
+        .getElementById(
+          'horaEntrada'
+        )
+        .value;
+
+    const dataSaida =
+      document
+        .getElementById(
+          'dataSaida'
+        )
+        .value;
+
+    const horaSaida =
+      document
+        .getElementById(
+          'horaSaida'
+        )
+        .value;
+
+    const days =
+      calculateHotelNights(
+        dataEntrada,
+        horaEntrada,
+        dataSaida,
+        horaSaida
+      );
+
+    const pets =
+      Number(
         document
           .getElementById(
-            'checkoutCalculado'
+            'quantidadePets'
           )
-          .value =
-          start &&
-          days > 0
-            ? addDaysISO(
-                start,
-                days
-              )
-            : '';
+          .value || 0
+      );
 
-        const base =
-          days *
-          pets *
-          config.precos.hospedagem;
+    document
+      .getElementById(
+        'diarias'
+      )
+      .value =
+      days > 0
+        ? days
+        : '';
 
-        document
-          .getElementById(
-            'hotelCalculation'
+    const base =
+      days *
+      pets *
+      config.precos.hospedagem;
+
+    document
+      .getElementById(
+        'hotelCalculation'
+      )
+      .textContent =
+      days > 0 &&
+      pets > 0
+        ? (
+            `Valor previsto da hospedagem: ` +
+            `${formatCurrency(base)} ` +
+            `(${days} diária(s) × ` +
+            `${pets} pet(s) × ` +
+            `${formatCurrency(
+              config.precos.hospedagem
+            )}).`
           )
-          .textContent =
-          days > 0 &&
-          pets > 0
-            ? (
-                `Valor previsto da hospedagem: ` +
-                `${formatCurrency(base)} ` +
-                `(${days} diária(s) × ` +
-                `${pets} pet(s) × ` +
-                `${formatCurrency(config.precos.hospedagem)}).`
-              )
-            : '';
+        : '';
 
-        const policyNotice =
-          document.getElementById(
-            'checkoutPolicyNotice'
-          );
+    const policyNotice =
+      document.getElementById(
+        'checkoutPolicyNotice'
+      );
 
-        const policyText =
-          document.getElementById(
-            'checkoutPolicyText'
-          );
+    const policyText =
+      document.getElementById(
+        'checkoutPolicyText'
+      );
 
-        if (checkoutTime) {
-          policyNotice.hidden =
-            false;
+    if (
+      dataEntrada &&
+      horaEntrada &&
+      dataSaida &&
+      horaSaida &&
+      days > 0
+    ) {
+      policyNotice.hidden =
+        false;
 
-          policyText.textContent =
-            `O checkout informado é às ${checkoutTime}. ` +
-            `Caso a retirada aconteça depois desse horário, ` +
-            `poderá ser cobrada meia diária adicional de ` +
-            `${formatCurrency(config.precos.hospedagem / 2)} por pet. ` +
-            `Se a permanência ultrapassar uma nova diária de 24 horas, ` +
-            `será cobrada outra diária completa de ` +
-            `${formatCurrency(config.precos.hospedagem)} por pet.`;
-        } else {
-          policyNotice.hidden =
-            true;
+      policyText.textContent =
+        `Período calculado automaticamente: ` +
+        `${days} diária(s). ` +
+        `A quantidade considera o tempo entre ` +
+        `a entrada e o checkout, contando uma ` +
+        `nova diária a cada período iniciado de 24 horas.`;
+    } else {
+      policyNotice.hidden =
+        true;
 
-          policyText.textContent =
-            '';
-        }
-      };
-
-      [
-        'dataEntrada',
-        'diarias',
-        'quantidadePets',
-        'horaSaida',
-      ].forEach((id) => {
-        document
-          .getElementById(id)
-          .addEventListener(
-            'input',
-            update
-          );
-      });
-
-      update();
-
-      return;
+      policyText.textContent =
+        '';
     }
+  };
+
+  [
+    'dataEntrada',
+    'horaEntrada',
+    'dataSaida',
+    'horaSaida',
+    'quantidadePets',
+  ].forEach((id) => {
+    document
+      .getElementById(id)
+      .addEventListener(
+        'input',
+        update
+      );
+  });
+
+  update();
+
+  return;
+}
 
     if (
       state.service ===
@@ -1770,111 +1825,129 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
     state.comprovante = null;
 
     if (
-      state.service ===
-        'hospedagem_cao' ||
-      state.service ===
-        'hospedagem_gato'
-    ) {
-      const dataEntrada =
-        document
-          .getElementById(
-            'dataEntrada'
-          )
-          .value;
+  state.service ===
+    'hospedagem_cao' ||
+  state.service ===
+    'hospedagem_gato'
+) {
+  const dataEntrada =
+    document
+      .getElementById(
+        'dataEntrada'
+      )
+      .value;
 
-      const horaEntrada =
-        document
-          .getElementById(
-            'horaEntrada'
-          )
-          .value;
+  const horaEntrada =
+    document
+      .getElementById(
+        'horaEntrada'
+      )
+      .value;
 
-      const horaSaida =
-        document
-          .getElementById(
-            'horaSaida'
-          )
-          .value;
+  const dataSaida =
+    document
+      .getElementById(
+        'dataSaida'
+      )
+      .value;
 
-      const diarias =
-        Number(
-          document
-            .getElementById(
-              'diarias'
-            )
-            .value
-        );
+  const horaSaida =
+    document
+      .getElementById(
+        'horaSaida'
+      )
+      .value;
 
-      const quantidadePets =
-        Number(
-          document
-            .getElementById(
-              'quantidadePets'
-            )
-            .value
-        );
+  const diarias =
+    calculateHotelNights(
+      dataEntrada,
+      horaEntrada,
+      dataSaida,
+      horaSaida
+    );
 
-      if (!dataEntrada) {
-        return 'Informe a data de entrada.';
-      }
+  const quantidadePets =
+    Number(
+      document
+        .getElementById(
+          'quantidadePets'
+        )
+        .value
+    );
 
-      if (
-        dataEntrada <
-        config.hoje
-      ) {
-        return 'A data de entrada não pode ser anterior a hoje.';
-      }
+  if (!dataEntrada) {
+    return 'Informe a data de entrada.';
+  }
 
-      if (!horaEntrada) {
-        return 'Informe o horário de entrada.';
-      }
+  if (
+    dataEntrada <
+    config.hoje
+  ) {
+    return 'A data de entrada não pode ser anterior a hoje.';
+  }
 
-      if (!horaSaida) {
-        return 'Informe o horário de retirada.';
-      }
+  if (!horaEntrada) {
+    return 'Informe o horário de entrada.';
+  }
 
-      if (
-        !Number.isInteger(
-          diarias
-        ) ||
-        diarias < 1 ||
-        diarias >
-          config.maxDiasHospedagem
-      ) {
-        return (
-          `Informe de 1 a ` +
-          `${config.maxDiasHospedagem} diárias.`
-        );
-      }
+  if (!dataSaida) {
+    return 'Informe a data de checkout.';
+  }
 
-      if (
-        !Number.isInteger(
-          quantidadePets
-        ) ||
-        quantidadePets < 1 ||
-        quantidadePets >
-          config.maxPets
-      ) {
-        return (
-          `Informe de 1 a ` +
-          `${config.maxPets} pets.`
-        );
-      }
+  if (dataSaida < dataEntrada) {
+    return 'A data de checkout não pode ser anterior à data de entrada.';
+  }
 
-      state.details = {
-        dataEntrada,
-        horaEntrada,
-        horaSaida,
-        diarias,
-        quantidadePets,
-      };
+  if (!horaSaida) {
+    return 'Informe o horário de retirada.';
+  }
 
-      syncPetsArrayLength(
-        quantidadePets
-      );
+  if (diarias < 1) {
+    return 'Não foi possível calcular a quantidade de diárias. Verifique as datas e horários.';
+  }
 
-      return null;
-    }
+  if (
+    !Number.isInteger(diarias) ||
+    diarias >
+      config.maxDiasHospedagem
+  ) {
+    return (
+      `O período pode ter no máximo ` +
+      `${config.maxDiasHospedagem} diárias.`
+    );
+  }
+
+  if (
+    !Number.isInteger(
+      quantidadePets
+    ) ||
+    quantidadePets < 1 ||
+    quantidadePets >
+      config.maxPets
+  ) {
+    return (
+      `Informe de 1 a ` +
+      `${config.maxPets} pets.`
+    );
+  }
+
+  state.details = {
+    dataEntrada,
+    horaEntrada,
+    dataSaida,
+    horaSaida,
+    diarias,
+    quantidadePets,
+  };
+
+  syncPetsArrayLength(
+    quantidadePets
+  );
+
+  return null;
+}
+    
+
 
     if (
       state.service ===
