@@ -2224,19 +2224,35 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             </div>
 
             <div class="field">
-              <label for="petConvive${index}">
-                Convive bem com outros cães?
-              </label>
+              <label>
+    Convive bem com outros cães?
+  </label>
 
-              <input
-                type="text"
-                id="petConvive${index}"
-                maxlength="250"
-                placeholder="Sim, não ou descreva"
-                value="${escapeHTML(
-                  pet.convive || ''
-                )}"
-              >
+  <div class="btn-toggle-row" id="conviveToggle${index}">
+    <button
+      type="button"
+      class="btn-toggle ${
+        pet.convive === 'Sim'
+          ? 'selected'
+          : ''
+      }"
+      data-value="Sim"
+    >
+      Sim
+    </button>
+
+    <button
+      type="button"
+      class="btn-toggle ${
+        pet.convive === 'Não'
+          ? 'selected'
+          : ''
+      }"
+      data-value="Não"
+    >
+      Não
+    </button>
+  </div>
             </div>
 
             <div class="field">
@@ -2445,6 +2461,66 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
               }
             );
         }
+          const conviveToggle =
+  card.querySelector(
+    `#conviveToggle${index}`
+  );
+
+if (conviveToggle) {
+  conviveToggle
+    .querySelectorAll('.btn-toggle')
+    .forEach((button) => {
+      button.addEventListener(
+        'click',
+        () => {
+
+          conviveToggle
+            .querySelectorAll('.btn-toggle')
+            .forEach((item) =>
+              item.classList.remove(
+                'selected'
+              )
+            );
+
+          button.classList.add(
+            'selected'
+          );
+
+          state.pets[index].convive =
+            button.dataset.value;
+
+          clearHumanNotice();
+
+          if (
+            button.dataset.value === 'Não'
+          ) {
+
+            const mensagem =
+              encodeURIComponent(
+              `🐾 Olá, seja bem-vindo(a) ao Patinhas Felizes! 🐶💛
+
+                Queremos conhecer melhor o seu doguinho(a) para oferecer o melhor cuidado possível.
+
+                Percebemos que ele(a) não convive bem com outros cães. Poderia nos contar um pouquinho mais sobre o comportamento dele(a), como ele reage e quais cuidados especiais devemos ter? 
+
+                Assim nossa equipe consegue preparar uma experiência mais tranquila, segura e cheia de carinho para o seu melhor amigo(a). 🐕✨
+
+                  Estamos à disposição! 💚`
+                   );
+
+            const whatsapp =
+              `https://wa.me/5514991937562?text=${mensagem}`;
+
+            window.open(
+              whatsapp,
+              '_blank'
+            );
+          }
+        }
+      );
+    });
+}
+
       }
     );
   }
@@ -2534,12 +2610,7 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
           selected.dataset.value;
 
         pet.convive =
-          document
-            .getElementById(
-              `petConvive${index}`
-            )
-            .value
-            .trim();
+        state.pets[index].convive || '';
 
         pet.castradoIdade =
           document
