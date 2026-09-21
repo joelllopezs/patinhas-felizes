@@ -1051,8 +1051,8 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
         <input
           type="time"
           id="horaEntrada"
-          min="08:00"
-          max="21:00"
+          min="07:00"
+          max="20:00"
           value="${escapeHTML(
             state.details.horaEntrada ||
               ''
@@ -1106,8 +1106,8 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
         <input
           type="time"
           id="horaSaida"
-          min="08:00"
-          max="22:00"
+          min="07:00"
+          max="20:00"
           value="${escapeHTML(
             state.details.horaSaida ||
               ''
@@ -1894,8 +1894,8 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
     return 'Informe o horário de entrada.';
   }
 
-  if (horaEntrada < '08:00' || horaEntrada > '21:00') {
-  return 'A entrada do pet deve ser realizada entre 08:00 e 21:00.';
+  if (horaEntrada < '07:00' || horaEntrada > '20:00') {
+  return 'A entrada do pet deve ser realizada entre 07:00 e 20:00.';
 }
 
   if (!dataSaida) {
@@ -1910,8 +1910,8 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
     return 'Informe o horário de retirada.';
   }
 
-  if (horaSaida < '08:00' || horaSaida > '22:00') {
-  return 'A retirada do pet deve ser realizada entre 08:00 e 22:00.';
+  if (horaSaida < '07:00' || horaSaida > '20:00') {
+  return 'A retirada do pet deve ser realizada entre 07:00 e 20:00.';
 }
 
   if (diarias < 1) {
