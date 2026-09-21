@@ -1051,6 +1051,8 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
         <input
           type="time"
           id="horaEntrada"
+          min="08:00"
+          max="21:00"
           value="${escapeHTML(
             state.details.horaEntrada ||
               ''
@@ -1104,6 +1106,8 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
         <input
           type="time"
           id="horaSaida"
+          min="08:00"
+          max="22:00"
           value="${escapeHTML(
             state.details.horaSaida ||
               ''
@@ -1890,6 +1894,10 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
     return 'Informe o horário de entrada.';
   }
 
+  if (horaEntrada < '08:00' || horaEntrada > '21:00') {
+  return 'A entrada do pet deve ser realizada entre 08:00 e 21:00.';
+}
+
   if (!dataSaida) {
     return 'Informe a data de checkout.';
   }
@@ -1901,6 +1909,10 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
   if (!horaSaida) {
     return 'Informe o horário de retirada.';
   }
+
+  if (horaSaida < '08:00' || horaSaida > '22:00') {
+  return 'A retirada do pet deve ser realizada entre 08:00 e 22:00.';
+}
 
   if (diarias < 1) {
     return 'Não foi possível calcular a quantidade de diárias. Verifique as datas e horários.';
