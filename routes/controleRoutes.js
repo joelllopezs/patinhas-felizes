@@ -14,6 +14,7 @@ const config = require('../config/agendamento');
 const reservaModel = require('../models/reservaModel');
 const controleModel = require('../models/controleModel');
 const reservaService = require('../services/reservaService');
+const precoService = require('../services/precoService');
 const disponibilidadeService = require('../services/disponibilidadeService');
 const googleCalendarService = require('../services/googleCalendarService');
 const { validarDataISO, hojeISOEmSaoPaulo } = require('../utils/dateUtils');
@@ -194,12 +195,17 @@ async function tratar(req, res, pathname, h) {
 
   if (req.method === 'GET' && rota === 'dados') {
     await reservaModel.expirarPendentes();
-    const [reservas, pausas, limite] = await Promise.all([
+    const [reservas, pausas, limite, vigentes] = await Promise.all([
       controleModel.listarReservasControle(),
       controleModel.listarPausas(),
       controleModel.obterLimiteVagas(),
+      controleModel.obterPrecosVigentes(),
     ]);
     ok({
+      precos: precoService.precosParaApi(vigentes.precos),
+      precosPadrao: precoService.precosParaApi(config.PRECOS),
+      precosAtualizadoEm: vigentes.atualizadoEm,
+      precosPersonalizados: vigentes.personalizado,
       hoje: hojeISOEmSaoPaulo(),
       limiteVagas: limite,
       limiteGatos: config.LIMITE_CLIENTES_GATOS_POR_DIA,
@@ -262,6 +268,25 @@ async function tratar(req, res, pathname, h) {
   if (m) {
     await controleModel.removerPausa(idDaRota(m[1], h));
     ok();
+    return true;
+  }
+
+  if (rota === 'precos') {
+    let novos;
+    try {
+      novos = precoService.normalizarPrecos(b);
+    } catch (e) {
+      throw erro(h, 400, e.message, 'VALORES_INVALIDOS');
+    }
+    // Só grava a tabela vigente: reservas já lançadas guardam o próprio valor_total/sinal/saldo.
+    await controleModel.definirPrecos(novos);
+    ok({ precos: precoService.precosParaApi(novos) });
+    return true;
+  }
+
+  if (rota === 'precos/restaurar') {
+    await controleModel.restaurarPrecosPadrao();
+    ok({ precos: precoService.precosParaApi(config.PRECOS) });
     return true;
   }
 

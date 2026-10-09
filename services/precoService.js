@@ -16,8 +16,8 @@ function arredondarMoeda(valor) {
   return Math.round((Number(valor) + Number.EPSILON) * 100) / 100;
 }
 
-function aplicarSinal(valorTotal) {
-  const valorSinal = Math.min(PRECOS.SINAL_RESERVA, valorTotal);
+function aplicarSinal(valorTotal, precos = PRECOS) {
+  const valorSinal = Math.min(precos.SINAL_RESERVA, valorTotal);
 
   return {
     valorSinal,
@@ -28,6 +28,10 @@ function aplicarSinal(valorTotal) {
   };
 }
 
+/**
+ * `precos` segue o formato de config.PRECOS e permite usar a tabela
+ * mantida pelo painel de controle. Sem ele, usa os valores padrão.
+ */
 function calcularPreco({
   servico,
   quantidadePets,
@@ -35,6 +39,7 @@ function calcularPreco({
   frequenciaSemanal,
   visitasDia,
   quantidadeDias,
+  precos = PRECOS,
 }) {
   const pets = inteiro(
     quantidadePets,
@@ -57,19 +62,19 @@ function calcularPreco({
     const valorTotal = arredondarMoeda(
       totalDiarias *
         pets *
-        PRECOS.HOSPEDAGEM_DIARIA
+        precos.HOSPEDAGEM_DIARIA
     );
 
     return {
-      valorUnitario: PRECOS.HOSPEDAGEM_DIARIA,
+      valorUnitario: precos.HOSPEDAGEM_DIARIA,
       valorTotal,
 
-      ...aplicarSinal(valorTotal),
+      ...aplicarSinal(valorTotal, precos),
 
       descricao:
         `${totalDiarias} diária(s) × ` +
         `${pets} pet(s) × ` +
-        `R$ ${PRECOS.HOSPEDAGEM_DIARIA
+        `R$ ${precos.HOSPEDAGEM_DIARIA
           .toFixed(2)
           .replace('.', ',')}`,
     };
@@ -84,13 +89,13 @@ function calcularPreco({
     );
 
     const valorTotal =
-      PRECOS.CRECHE[frequencia];
+      precos.CRECHE[frequencia];
 
     return {
       valorUnitario: valorTotal,
       valorTotal,
 
-      ...aplicarSinal(valorTotal),
+      ...aplicarSinal(valorTotal, precos),
 
       descricao:
         `Plano mensal de ${frequencia}x por semana`,
@@ -113,7 +118,7 @@ function calcularPreco({
     );
 
     const valorDiario =
-      PRECOS.DOMICILIAR[visitas];
+      precos.DOMICILIAR[visitas];
 
     const valorTotal =
       valorDiario * dias;
@@ -122,7 +127,7 @@ function calcularPreco({
       valorUnitario: valorDiario,
       valorTotal,
 
-      ...aplicarSinal(valorTotal),
+      ...aplicarSinal(valorTotal, precos),
 
       descricao:
         `${dias} dia(s) × ` +
@@ -138,6 +143,53 @@ function calcularPreco({
   );
 }
 
+const LIMITE_VALOR = 100000;
+
+function valorMoeda(v, campo, { permiteZero = false } = {}) {
+  if (v === '' || v === null || v === undefined || typeof v === 'boolean') {
+    throw new Error(`Informe ${campo}.`);
+  }
+  const n = typeof v === 'string' ? Number(v.replace(',', '.')) : Number(v);
+  if (!Number.isFinite(n) || n < 0 || n > LIMITE_VALOR || (!permiteZero && n === 0)) {
+    throw new Error(`Valor inválido em ${campo}.`);
+  }
+  return arredondarMoeda(n);
+}
+
+/**
+ * Converte o formato da API ({hospedagem, creche:{1..5}, domiciliar:{1,2}, sinal})
+ * para o formato interno (config.PRECOS), validando tudo.
+ */
+function normalizarPrecos(entrada) {
+  if (!entrada || typeof entrada !== 'object') throw new Error('Valores inválidos.');
+  const creche = {};
+  for (let i = 1; i <= 5; i += 1) {
+    creche[i] = valorMoeda(entrada.creche?.[i], `Creche ${i}x por semana`);
+  }
+  const domiciliar = {};
+  for (let i = 1; i <= 2; i += 1) {
+    domiciliar[i] = valorMoeda(entrada.domiciliar?.[i], `Visita em casa (${i} por dia)`);
+  }
+  return {
+    HOSPEDAGEM_DIARIA: valorMoeda(entrada.hospedagem, 'Hospedagem (diária)'),
+    CRECHE: creche,
+    DOMICILIAR: domiciliar,
+    SINAL_RESERVA: valorMoeda(entrada.sinal, 'Sinal', { permiteZero: true }),
+  };
+}
+
+/** Formato interno (config.PRECOS) -> formato da API/painel/site. */
+function precosParaApi(p = PRECOS) {
+  return {
+    hospedagem: p.HOSPEDAGEM_DIARIA,
+    creche: { ...p.CRECHE },
+    domiciliar: { ...p.DOMICILIAR },
+    sinal: p.SINAL_RESERVA,
+  };
+}
+
 module.exports = {
   calcularPreco,
+  normalizarPrecos,
+  precosParaApi,
 };

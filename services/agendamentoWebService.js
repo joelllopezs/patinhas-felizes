@@ -28,6 +28,11 @@ const disponibilidadeService =
     './disponibilidadeService'
   );
 
+const controleModel =
+  require(
+    '../models/controleModel'
+  );
+
 const precoService =
   require(
     './precoService'
@@ -997,8 +1002,15 @@ async function prepararSolicitacao(
     );
   }
 
+  // Tabela vigente no painel de controle: vale só para esta nova reserva.
+  const precosVigentes =
+    await controleModel.obterPrecos();
+
   const preco =
     precoService.calcularPreco({
+      precos:
+        precosVigentes,
+
       servico:
         preparado.servico,
 

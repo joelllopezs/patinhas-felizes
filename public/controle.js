@@ -23,7 +23,7 @@ const ST = {
   cancelado: ['Cancelado', 't-r'],
   expirado: ['Expirado', 't-b'],
 };
-const NAV = [['agenda', '📅', 'Reservas'], ['clientes', '🐾', 'Clientes'], ['estadias', '🏠', 'Estadias'], ['relatorios', '📊', 'Relatórios']];
+const NAV = [['agenda', '📅', 'Reservas'], ['clientes', '🐾', 'Clientes'], ['estadias', '🏠', 'Estadias'], ['relatorios', '📊', 'Relatórios'], ['valores', '💲', 'Valores']];
 const PAGS = [['pix', 'Pix'], ['dinheiro', 'Dinheiro'], ['cartao', 'Cartão']];
 const PAGN = Object.fromEntries(PAGS);
 
@@ -70,7 +70,7 @@ async function load() {
 }
 function render() {
   $('nav').innerHTML = NAV.map(([k, e, t]) => `<button class="${tab === k ? 'on' : ''}" data-a="go" data-v="${k}">${e} ${t}</button>`).join('');
-  $('v').innerHTML = { agenda: vAgenda, clientes: vClientes, estadias: vEstadias, relatorios: vRel }[tab]();
+  $('v').innerHTML = { agenda: vAgenda, clientes: vClientes, estadias: vEstadias, relatorios: vRel, valores: vValores }[tab]();
 }
 
 function vAgenda() {
@@ -140,6 +140,48 @@ function vRelBase() {
 }
 
 
+const num = (v) => String(v ?? '').replace('.', ',');
+const pin = (id, v, extra = '') => `<input id="${id}" inputmode="decimal" type="number" min="0" step="0.01" value="${v}" ${extra}>`;
+function vValores() {
+  const p = D.precos, pd = D.precosPadrao;
+  const dif = JSON.stringify(p) !== JSON.stringify(pd);
+  const quando = D.precosAtualizadoEm ? new Date(D.precosAtualizadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+  const hint = (v) => `<span class="sm">Padrão: ${R(v)}</span>`;
+  const aviso = `<div class="banner"><div style="font-size:30px">🛡️</div><div class="grow"><b>Só vale para novos agendamentos</b><span class="sm" style="color:inherit">Reservas já lançadas (pagas ou pendentes) mantêm o valor, o sinal e o saldo que já foram gravados. Alterar a tabela não mexe no fluxo financeiro existente.</span></div></div>`;
+  const campos = (tit, html) => `<div class="card"><h3>${tit}</h3><div class="fg" style="margin-top:10px">${html}</div></div>`;
+  return head('Valores', 'Tabela de preços usada no site, no cálculo de novas reservas e no novo agendamento' + (quando ? ' · última alteração ' + quando : dif ? '' : ' · usando valores padrão')) + aviso +
+    campos('🏠 Hospedagem (cão e gato)', `<label>Diária por pet (R$)${pin('pv-h', p.hospedagem)}${hint(pd.hospedagem)}</label>`) +
+    campos('🎾 Creche · plano mensal', [1, 2, 3, 4, 5].map((n) => `<label>${n}x por semana (R$)${pin('pv-c' + n, p.creche[n])}${hint(pd.creche[n])}</label>`).join('')) +
+    campos('🚪 Visita em casa · por dia', [1, 2].map((n) => `<label>${n} visita${n > 1 ? 's' : ''} por dia (R$)${pin('pv-d' + n, p.domiciliar[n])}${hint(pd.domiciliar[n])}</label>`).join('')) +
+    campos('💳 Sinal de reserva', `<label>Sinal para gerar o protocolo (R$)${pin('pv-s', p.sinal)}${hint(pd.sinal)}</label>`) +
+    `<div class="card noprint" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="btn g" data-a="precoPadrao">↺ Restaurar valores padrão</button><button class="btn" data-a="salvarPrecos">Salvar valores</button></div>`;
+}
+function lerPrecos() {
+  const v = (id) => $(id).value.replace(',', '.');
+  return { hospedagem: v('pv-h'), creche: Object.fromEntries([1, 2, 3, 4, 5].map((n) => [n, v('pv-c' + n)])), domiciliar: Object.fromEntries([1, 2].map((n) => [n, v('pv-d' + n)])), sinal: v('pv-s') };
+}
+
+// Sugestão do total no "Novo agendamento", pela tabela vigente (o campo continua editável).
+let totalManual = false;
+function sugerirTotal() {
+  if (!$('ftot')) return;
+  const sv = $('fs').value, p = D.precos, n = Math.max(0, diff($('fi').value || sel, $('fo').value || sel));
+  const qp = Math.max(1, $('fp').value.split(',').map((x) => x.trim()).filter(Boolean).length);
+  $('fplw').hidden = !(sv === 'creche' || sv === 'domiciliar');
+  const pl = $('fpl');
+  const cur = pl.value;
+  const lista = sv === 'domiciliar' ? [['1', '1 visita por dia'], ['2', '2 visitas por dia']] : [['1', '1x por semana'], ['2', '2x por semana'], ['3', '3x por semana'], ['4', '4x por semana'], ['5', '5x por semana']];
+  if (pl.dataset.sv !== sv) { pl.innerHTML = opt(lista, sv === 'domiciliar' ? '1' : '5'); pl.dataset.sv = sv; }
+  else pl.value = cur;
+  const k = Number(pl.value);
+  let t = 0, txt = '';
+  if (sv === 'creche') { t = p.creche[k]; txt = `Plano ${k}x por semana`; }
+  else if (sv === 'domiciliar') { const d = n + 1; t = p.domiciliar[k] * d; txt = `${d} dia(s) × ${R(p.domiciliar[k])}`; }
+  else { t = n * qp * p.hospedagem; txt = `${n} diária(s) × ${qp} pet(s) × ${R(p.hospedagem)}`; }
+  $('fhint').textContent = `Sugestão pela tabela de valores: ${txt} = ${R(t)}${totalManual ? ' (valor digitado manualmente mantido)' : ''}`;
+  if (!totalManual) $('ftot').value = t;
+}
+
 const ex = { de: '', ate: '', g: 'all', st: 'ativas' };
 const brf = (v) => v.slice(8) + '/' + v.slice(5, 7) + '/' + v.slice(0, 4);
 function exFiltro() {
@@ -174,7 +216,9 @@ const opt = (a, v) => a.map(([k, t]) => `<option value="${k}" ${k === v ? 'selec
 const foot = (a) => `<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end"><button class="btn g" data-a="fechar">Fechar</button><button class="btn" data-a="${a}">Salvar</button></div>`;
 
 function formNovo() {
-  openM(`<h3>Novo agendamento</h3><div class="fg" style="margin-top:12px"><label>Serviço<select id="fs">${opt(Object.entries(SV).map(([k, v]) => [k, v.n]), 'hospedagem_cao')}</select></label><label>Tutor<input id="ft"></label><label>Telefone (com DDD)<input id="ftel" inputmode="tel"></label><label>Pets (separe por vírgula)<input id="fp"></label><label>Entrada<input type="date" id="fi" value="${sel}"></label><label>Saída<input type="date" id="fo" value="${add(sel, 2)}"></label><label>Hora entrada<input type="time" id="fhi" value="10:00"></label><label>Hora saída<input type="time" id="fho" value="17:00"></label><label>Total (R$)<input type="number" min="0" step="0.01" id="ftot"></label><label>Pagamento<select id="fpay">${opt(PAGS, 'pix')}</select></label></div><label style="margin-top:10px"><span><input type="checkbox" id="fpd" style="width:auto"> Já está pago</span></label><label style="margin-top:10px">Observações<input id="fob"></label><div class="sm" style="margin-top:8px">Creche: usa segunda a sexta dentro do período. Visita em casa: todos os dias do período. O sistema confere as vagas antes de salvar.</div>${foot('salvarNovo')}`);
+  openM(`<h3>Novo agendamento</h3><div class="fg" style="margin-top:12px"><label>Serviço<select id="fs">${opt(Object.entries(SV).map(([k, v]) => [k, v.n]), 'hospedagem_cao')}</select></label><label>Tutor<input id="ft"></label><label>Telefone (com DDD)<input id="ftel" inputmode="tel"></label><label>Pets (separe por vírgula)<input id="fp"></label><label>Entrada<input type="date" id="fi" value="${sel}"></label><label>Saída<input type="date" id="fo" value="${add(sel, 2)}"></label><label>Hora entrada<input type="time" id="fhi" value="10:00"></label><label>Hora saída<input type="time" id="fho" value="17:00"></label><label id="fplw" hidden>Plano / visitas<select id="fpl"></select></label><label>Total (R$)<input type="number" min="0" step="0.01" id="ftot"></label><label>Pagamento<select id="fpay">${opt(PAGS, 'pix')}</select></label></div><label style="margin-top:10px"><span><input type="checkbox" id="fpd" style="width:auto"> Já está pago</span></label><label style="margin-top:10px">Observações<input id="fob"></label><div class="sm" style="margin-top:8px">Creche: usa segunda a sexta dentro do período. Visita em casa: todos os dias do período. O sistema confere as vagas antes de salvar.</div><div class="sm" id="fhint" style="margin-top:6px"></div>${foot('salvarNovo')}`);
+  totalManual = false;
+  sugerirTotal();
 }
 function formEditar(id) {
   const r = D.reservas.find((x) => x.id === id);
@@ -208,6 +252,11 @@ const H = {
     run(async () => { await api('reservas', corpo); closeM(); }, 'Agendamento criado ✅');
   },
   salvarEdit: () => run(async () => { await api(`reservas/${$('eid').value}/editar`, { total: Number($('etot').value), pagamento: $('epay').value, pago: $('epd').checked, obs: $('eob').value }); closeM(); }, 'Salvo ✅'),
+  salvarPrecos: () => {
+    if (!confirm('Salvar os novos valores? Valem só para novos agendamentos; reservas já lançadas não mudam.')) return;
+    run(() => api('precos', lerPrecos()), 'Valores atualizados ✅');
+  },
+  precoPadrao: () => { if (confirm('Voltar para os valores padrão? Reservas já lançadas não mudam.')) run(() => api('precos/restaurar', {}), 'Valores padrão restaurados'); },
   salvarPausa: () => run(async () => { await api('pausas', { servico: $('pm').value, inicio: $('pa').value, fim: $('pb').value, motivo: $('pw').value }); closeM(); }, '⏸ Agendamentos pausados'),
 };
 
@@ -234,6 +283,11 @@ document.addEventListener('click', (e) => {
   if (e.target.id === 'md') return closeM();
   const b = e.target.closest('[data-a]');
   if (b && H[b.dataset.a]) H[b.dataset.a](b.dataset.v);
+});
+document.addEventListener('input', (e) => {
+  const id = e.target.id;
+  if (id === 'ftot') totalManual = e.target.value !== '';
+  else if (['fs', 'fp', 'fi', 'fo', 'fpl'].includes(id)) { if (id === 'fs') totalManual = false; sugerirTotal(); }
 });
 document.addEventListener('change', (e) => { const k = e.target.dataset && e.target.dataset.ex; if (k) { ex[k] = e.target.value; render(); } });
 load();

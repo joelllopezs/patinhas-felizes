@@ -2,8 +2,10 @@
 
 const db = require('../database/connection');
 const config = require('../config/agendamento');
+const precoService = require('../services/precoService');
 
 const CHAVE_LIMITE = 'limite_vagas_diario';
+const CHAVE_PRECOS = 'precos';
 const HOJE_SP = "(NOW() AT TIME ZONE 'America/Sao_Paulo')::date";
 
 async function tabelaExiste(nome, client = null) {
@@ -25,6 +27,45 @@ async function definirLimiteVagas(limite, client = null) {
     [CHAVE_LIMITE, String(limite)],
     client
   );
+}
+
+/**
+ * Tabela de valores vigente (formato config.PRECOS) + data da última alteração.
+ * Se nada foi salvo (ou o JSON estiver inválido), vale o padrão de config/agendamento.js.
+ * Só afeta NOVOS cálculos: cada reserva grava o próprio valor_total ao ser criada.
+ */
+async function obterPrecosVigentes(client = null) {
+  const padrao = { precos: config.PRECOS, atualizadoEm: null, personalizado: false };
+  if (!(await tabelaExiste('configuracoes', client))) return padrao;
+  const { rows } = await db.query(
+    'SELECT valor, atualizada_em FROM configuracoes WHERE chave = $1',
+    [CHAVE_PRECOS],
+    client
+  );
+  if (!rows[0]) return padrao;
+  try {
+    const precos = precoService.normalizarPrecos(JSON.parse(rows[0].valor));
+    return { precos, atualizadoEm: rows[0].atualizada_em, personalizado: true };
+  } catch (_) {
+    return padrao;
+  }
+}
+
+async function obterPrecos(client = null) {
+  return (await obterPrecosVigentes(client)).precos;
+}
+
+async function definirPrecos(precos, client = null) {
+  await db.query(
+    `INSERT INTO configuracoes (chave, valor, atualizada_em) VALUES ($1, $2, NOW())
+     ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, atualizada_em = NOW()`,
+    [CHAVE_PRECOS, JSON.stringify(precoService.precosParaApi(precos))],
+    client
+  );
+}
+
+async function restaurarPrecosPadrao(client = null) {
+  await db.query('DELETE FROM configuracoes WHERE chave = $1', [CHAVE_PRECOS], client);
 }
 
 async function listarPausas(client = null) {
@@ -108,6 +149,10 @@ async function atualizarCamposControle(id, { pago, formaPagamento, valorTotal, o
 module.exports = {
   obterLimiteVagas,
   definirLimiteVagas,
+  obterPrecos,
+  obterPrecosVigentes,
+  definirPrecos,
+  restaurarPrecosPadrao,
   listarPausas,
   criarPausa,
   removerPausa,
