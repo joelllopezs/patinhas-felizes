@@ -556,6 +556,31 @@ function mimeEstatico(
  * O esbuild empacota essa dependência antes de enviarmos /script.js.
  */
 async function obterBrowserBundle() {
+  /*
+   * Na Vercel só a pasta public/ é publicada junto com a função, então
+   * src/script.js pode não existir lá. O `npm run build` já gera
+   * public/script.js; usamos esse arquivo pronto quando estiver na Vercel
+   * ou quando o src não estiver disponível. Em desenvolvimento local
+   * continua empacotando src/script.js na hora (sempre atualizado).
+   */
+  const scriptPronto = path.join(PUBLIC_DIR, 'script.js');
+
+  if (
+    fs.existsSync(scriptPronto) &&
+    (process.env.VERCEL || !fs.existsSync(SRC_SCRIPT))
+  ) {
+    const mtimePronto = fs.statSync(scriptPronto).mtimeMs;
+
+    if (browserBundleCache && browserBundleMtime === mtimePronto) {
+      return browserBundleCache;
+    }
+
+    browserBundleCache = fs.readFileSync(scriptPronto);
+    browserBundleMtime = mtimePronto;
+
+    return browserBundleCache;
+  }
+
   if (
     !fs.existsSync(
       SRC_SCRIPT
