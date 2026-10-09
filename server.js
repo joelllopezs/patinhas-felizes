@@ -1595,7 +1595,11 @@ async function rotear(
             config.OWNER_WHATSAPP,
 
           limiteVagasDiario:
-            await controleModel.obterLimiteVagas(),
+            await controleModel
+              .obterLimiteVagas()
+              .catch(
+                () => config.LIMITE_VAGAS_DIARIO
+              ),
 
           maxPets:
             config.MAX_PETS_POR_RESERVA,
