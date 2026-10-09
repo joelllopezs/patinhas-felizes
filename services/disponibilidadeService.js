@@ -1,6 +1,7 @@
 'use strict';
 
 const reservaModel = require('../models/reservaModel');
+const controleModel = require('../models/controleModel');
 const {
   gerarIntervaloDias,
   gerarDatasPorDiasSemana,
@@ -9,7 +10,6 @@ const {
   formatarDataBR,
 } = require('../utils/dateUtils');
 const {
-  LIMITE_VAGAS_DIARIO,
   LIMITE_CLIENTES_GATOS_POR_DIA,
   MAX_PETS_POR_RESERVA,
   SERVICOS,
@@ -77,6 +77,7 @@ async function verificarDisponibilidade({
   diasSemanaCreche,
   excluirProtocolo = null,
   datasOcupacaoISO = null,
+  verificarPausa = false,
   client = null,
 }) {
   validarServico(servico);
@@ -86,6 +87,19 @@ async function verificarDisponibilidade({
   const datasOcupacao = Array.isArray(datasOcupacaoISO) && datasOcupacaoISO.length > 0
     ? [...new Set(datasOcupacaoISO)].sort()
     : resolverDatasOcupacao({ servico, entradaISO, saidaISO, diasSemanaCreche });
+
+  if (verificarPausa) {
+    const pausa = await controleModel.buscarPausa({ servico, datas: datasOcupacao }, client);
+    if (pausa) {
+      return {
+        disponivel: false,
+        datasOcupacao,
+        motivo:
+          `Os agendamentos estão pausados de ${formatarDataBR(pausa.inicio)} a ${formatarDataBR(pausa.fim)}` +
+          `${pausa.motivo ? ` (${pausa.motivo})` : ''}. Escolha outras datas ou fale com a Patinhas Felizes.`,
+      };
+    }
+  }
 
   if (SERVICOS_SEM_CONTROLE.includes(servico)) {
     return {
@@ -122,6 +136,7 @@ async function verificarDisponibilidade({
     };
   }
 
+  const LIMITE_VAGAS_DIARIO = await controleModel.obterLimiteVagas(client);
   let menorSaldo = LIMITE_VAGAS_DIARIO;
 
   for (const data of datasOcupacao) {

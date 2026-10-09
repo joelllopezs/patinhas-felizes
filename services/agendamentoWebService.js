@@ -965,6 +965,7 @@ async function prepararSolicitacao(
   const disponibilidade =
     await disponibilidadeService
       .verificarDisponibilidade({
+        verificarPausa: true,
         servico:
           preparado.servico,
 

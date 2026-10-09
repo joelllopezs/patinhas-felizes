@@ -5,13 +5,17 @@ const http = require('http');
 const path = require('path');
 const { URL } = require('url');
 const crypto = require('crypto');
+const esbuild = require('esbuild');
 
 const config = require('./config/agendamento');
 const reservaModel = require('./models/reservaModel');
 const tentativaPinModel = require('./models/tentativaPinModel');
+const controleModel = require('./models/controleModel');
+const controleRoutes = require('./routes/controleRoutes');
 const reservaService = require('./services/reservaService');
 const comprovanteService = require('./services/comprovanteService');
 const uploadTicketService = require('./services/uploadTicketService');
+
 const {
   DomainError,
   SERVICE_LABELS,
@@ -21,17 +25,30 @@ const {
   montarLinkWhatsAppEmpresa,
   montarLinkRespostaCliente,
 } = require('./services/agendamentoWebService');
+
 const {
   hojeISOEmSaoPaulo,
   formatarDataBR,
 } = require('./utils/dateUtils');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const SRC_DIR = path.join(__dirname, 'src');
+const SRC_SCRIPT = path.join(SRC_DIR, 'script.js');
+
 const MAX_JSON_BYTES = 2 * 1024 * 1024;
 
+let browserBundleCache = null;
+let browserBundleMtime = 0;
+
 class HttpError extends Error {
-  constructor(status, message, code = 'ERRO_REQUISICAO', details = undefined) {
+  constructor(
+    status,
+    message,
+    code = 'ERRO_REQUISICAO',
+    details = undefined
+  ) {
     super(message);
+
     this.name = 'HttpError';
     this.status = status;
     this.code = code;
@@ -39,72 +56,168 @@ class HttpError extends Error {
   }
 }
 
-function cabecalhosSeguranca(res, { permitirInlineStyle = false } = {}) {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+function cabecalhosSeguranca(
+  res,
+  {
+    permitirInlineStyle = false,
+  } = {}
+) {
+  res.setHeader(
+    'X-Content-Type-Options',
+    'nosniff'
+  );
+
+  res.setHeader(
+    'X-Frame-Options',
+    'DENY'
+  );
+
+  res.setHeader(
+    'Referrer-Policy',
+    'no-referrer'
+  );
+
+  res.setHeader(
+    'X-Robots-Tag',
+    'noindex, nofollow, noarchive'
+  );
+
   res.setHeader(
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(), payment=()'
   );
 
-  const styleSrc = permitirInlineStyle
-    ? "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com"
-    : "style-src 'self' https://fonts.googleapis.com";
+  const styleSrc =
+    permitirInlineStyle
+      ? "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com"
+      : "style-src 'self' https://fonts.googleapis.com";
 
   res.setHeader(
     'Content-Security-Policy',
-    `default-src 'self'; ${styleSrc}; font-src 'self' https://fonts.gstatic.com; ` +
-      "img-src 'self' data:; script-src 'self'; connect-src 'self' https://vercel.com https://*.vercel-storage.com; "+
-      "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    `default-src 'self'; ${styleSrc}; ` +
+      "font-src 'self' https://fonts.gstatic.com; " +
+      "img-src 'self' data: https://*.public.blob.vercel-storage.com; " +
+      "script-src 'self'; " +
+      "connect-src 'self' https://vercel.com https://*.vercel-storage.com https://*.blob.vercel-storage.com; " +
+      "frame-ancestors 'none'; " +
+      "base-uri 'self'; " +
+      "form-action 'self'"
   );
 }
 
-function enviarJSON(res, status, corpo) {
-  const json = JSON.stringify(corpo);
+function enviarJSON(
+  res,
+  status,
+  corpo
+) {
+  const json =
+    JSON.stringify(corpo);
+
   cabecalhosSeguranca(res);
-  res.writeHead(status, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Content-Length': Buffer.byteLength(json),
-    'Cache-Control': 'no-store',
-  });
+
+  res.writeHead(
+    status,
+    {
+      'Content-Type':
+        'application/json; charset=utf-8',
+
+      'Content-Length':
+        Buffer.byteLength(json),
+
+      'Cache-Control':
+        'no-store',
+    }
+  );
+
   res.end(json);
 }
 
-function enviarHTML(res, status, html) {
-  cabecalhosSeguranca(res, { permitirInlineStyle: true });
-  res.writeHead(status, {
-    'Content-Type': 'text/html; charset=utf-8',
-    'Content-Length': Buffer.byteLength(html),
-    'Cache-Control': 'no-store',
-  });
+function enviarHTML(
+  res,
+  status,
+  html
+) {
+  cabecalhosSeguranca(
+    res,
+    {
+      permitirInlineStyle: true,
+    }
+  );
+
+  res.writeHead(
+    status,
+    {
+      'Content-Type':
+        'text/html; charset=utf-8',
+
+      'Content-Length':
+        Buffer.byteLength(html),
+
+      'Cache-Control':
+        'no-store',
+    }
+  );
+
   res.end(html);
 }
 
-function enviarErro(res, error) {
-  const status = Number(error?.status) || 500;
-  const message = status >= 500
-    ? 'Ocorreu um erro interno. Tente novamente.'
-    : error.message;
-  const code = error?.code || 'ERRO_INTERNO';
+function enviarErro(
+  res,
+  error
+) {
+  const status =
+    Number(error?.status) ||
+    500;
+
+  const message =
+    status >= 500
+      ? 'Ocorreu um erro interno. Tente novamente.'
+      : error.message;
+
+  const code =
+    error?.code ||
+    'ERRO_INTERNO';
 
   if (status >= 500) {
-    console.error('[ERRO]', error);
+    console.error(
+      '[ERRO]',
+      error
+    );
   }
 
-  enviarJSON(res, status, {
-    ok: false,
-    error: message,
-    code,
-    ...(error?.details ? { details: error.details } : {}),
-  });
+  enviarJSON(
+    res,
+    status,
+    {
+      ok: false,
+      error: message,
+      code,
+
+      ...(error?.details
+        ? {
+            details:
+              error.details,
+          }
+        : {}),
+    }
+  );
 }
 
-async function lerCorpo(req, limite) {
-  const tamanhoInformado = Number(req.headers['content-length'] || 0);
+async function lerCorpo(
+  req,
+  limite
+) {
+  const tamanhoInformado =
+    Number(
+      req.headers[
+        'content-length'
+      ] || 0
+    );
 
-  if (tamanhoInformado > limite) {
+  if (
+    tamanhoInformado >
+    limite
+  ) {
     throw new HttpError(
       413,
       'O conteúdo enviado ultrapassa o limite permitido.',
@@ -115,10 +228,16 @@ async function lerCorpo(req, limite) {
   const partes = [];
   let total = 0;
 
-  for await (const parte of req) {
-    total += parte.length;
+  for await (
+    const parte of req
+  ) {
+    total +=
+      parte.length;
 
-    if (total > limite) {
+    if (
+      total >
+      limite
+    ) {
       throw new HttpError(
         413,
         'O conteúdo enviado ultrapassa o limite permitido.',
@@ -126,19 +245,35 @@ async function lerCorpo(req, limite) {
       );
     }
 
-    partes.push(parte);
+    partes.push(
+      parte
+    );
   }
 
-  return Buffer.concat(partes);
+  return Buffer.concat(
+    partes
+  );
 }
 
 async function lerJSON(req) {
-  const buffer = await lerCorpo(req, MAX_JSON_BYTES);
+  const buffer =
+    await lerCorpo(
+      req,
+      MAX_JSON_BYTES
+    );
 
-  if (buffer.length === 0) return {};
+  if (
+    buffer.length === 0
+  ) {
+    return {};
+  }
 
   try {
-    return JSON.parse(buffer.toString('utf8'));
+    return JSON.parse(
+      buffer.toString(
+        'utf8'
+      )
+    );
   } catch (_) {
     throw new HttpError(
       400,
@@ -148,87 +283,183 @@ async function lerJSON(req) {
   }
 }
 
-async function lerFormulario(req) {
-  const buffer = await lerCorpo(req, 16 * 1024);
+async function lerFormulario(
+  req
+) {
+  const buffer =
+    await lerCorpo(
+      req,
+      16 * 1024
+    );
+
   return Object.fromEntries(
-    new URLSearchParams(buffer.toString('utf8')).entries()
+    new URLSearchParams(
+      buffer.toString(
+        'utf8'
+      )
+    ).entries()
   );
 }
 
-function escaparHTML(valor) {
-  return String(valor == null ? '' : valor)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function moeda(valor) {
-  return Number(valor || 0).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
-}
-
-function baseUrlDaRequisicao(req) {
-  if (config.PUBLIC_BASE_URL) return config.PUBLIC_BASE_URL;
-
-  const protocoloEncaminhado = String(
-    req.headers['x-forwarded-proto'] || ''
+function escaparHTML(
+  valor
+) {
+  return String(
+    valor == null
+      ? ''
+      : valor
   )
-    .split(',')[0]
-    .trim();
+    .replace(
+      /&/g,
+      '&amp;'
+    )
+    .replace(
+      /</g,
+      '&lt;'
+    )
+    .replace(
+      />/g,
+      '&gt;'
+    )
+    .replace(
+      /"/g,
+      '&quot;'
+    )
+    .replace(
+      /'/g,
+      '&#039;'
+    );
+}
+
+function moeda(
+  valor
+) {
+  return Number(
+    valor || 0
+  ).toLocaleString(
+    'pt-BR',
+    {
+      style: 'currency',
+      currency: 'BRL',
+    }
+  );
+}
+
+function baseUrlDaRequisicao(
+  req
+) {
+  if (
+    config.PUBLIC_BASE_URL
+  ) {
+    return config.PUBLIC_BASE_URL;
+  }
+
+  const protocoloEncaminhado =
+    String(
+      req.headers[
+        'x-forwarded-proto'
+      ] || ''
+    )
+      .split(',')[0]
+      .trim();
 
   const protocolo =
     protocoloEncaminhado ||
-    (req.socket.encrypted ? 'https' : 'http');
+    (
+      req.socket.encrypted
+        ? 'https'
+        : 'http'
+    );
 
-  const host = String(
-    req.headers.host || `localhost:${config.PORT}`
-  )
-    .replace(/[\r\n]/g, '')
-    .trim();
+  const host =
+    String(
+      req.headers.host ||
+        `localhost:${config.PORT}`
+    )
+      .replace(
+        /[\r\n]/g,
+        ''
+      )
+      .trim();
 
   return `${protocolo}://${host}`;
 }
 
-function normalizarErro(error) {
-  if (error instanceof HttpError || error instanceof DomainError) {
+function normalizarErro(
+  error
+) {
+  if (
+    error instanceof
+      HttpError ||
+    error instanceof
+      DomainError
+  ) {
     return error;
   }
 
-  const wrapped = new HttpError(
-    Number(error?.status) || 500,
-    error?.message || 'Erro interno.',
-    error?.code || 'ERRO_INTERNO',
-    error?.details
-  );
+  const wrapped =
+    new HttpError(
+      Number(
+        error?.status
+      ) || 500,
 
-  if (wrapped.status >= 500 && error?.stack) {
-    wrapped.stack = error.stack;
+      error?.message ||
+        'Erro interno.',
+
+      error?.code ||
+        'ERRO_INTERNO',
+
+      error?.details
+    );
+
+  if (
+    wrapped.status >=
+      500 &&
+    error?.stack
+  ) {
+    wrapped.stack =
+      error.stack;
   }
 
   return wrapped;
 }
 
-async function gerarReservaComBlob(preparado, comprovanteValidado) {
-  let ultimoErro = null;
+async function gerarReservaComBlob(
+  preparado,
+  comprovanteValidado
+) {
+  let ultimoErro =
+    null;
 
-  for (let tentativa = 1; tentativa <= 5; tentativa += 1) {
+  for (
+    let tentativa = 1;
+    tentativa <= 5;
+    tentativa += 1
+  ) {
     const identificadores =
-      reservaService.gerarIdentificadores(preparado.servico);
+      reservaService
+        .gerarIdentificadores(
+          preparado.servico
+        );
 
     try {
-      return await reservaService.criarPreAgendamento({
-        preparado,
-        comprovante: comprovanteValidado,
-        identificadores,
-      });
-    } catch (error) {
-      ultimoErro = error;
+      return await reservaService
+        .criarPreAgendamento({
+          preparado,
 
-      if (error.code !== 'IDENTIFICADOR_DUPLICADO') {
+          comprovante:
+            comprovanteValidado,
+
+          identificadores,
+        });
+    } catch (error) {
+      ultimoErro =
+        error;
+
+      if (
+        error.code !==
+        'IDENTIFICADOR_DUPLICADO'
+      ) {
         throw error;
       }
     }
@@ -243,102 +474,400 @@ async function gerarReservaComBlob(preparado, comprovanteValidado) {
   );
 }
 
-function serializarReservaPublica(reserva) {
+function serializarReservaPublica(
+  reserva
+) {
   return {
-    protocolo: reserva.protocolo,
-    status: reserva.status,
-    servico: reserva.servico,
-    servicoLabel: SERVICE_LABELS[reserva.servico],
-    valorTotal: reserva.valor_total,
-    valorSinal: reserva.valor_sinal,
-    valorAPagar: reserva.valor_a_pagar,
-    saldoPendente: reserva.saldo_pendente,
+    protocolo:
+      reserva.protocolo,
+
+    status:
+      reserva.status,
+
+    servico:
+      reserva.servico,
+
+    servicoLabel:
+      SERVICE_LABELS[
+        reserva.servico
+      ],
+
+    valorTotal:
+      reserva.valor_total,
+
+    valorSinal:
+      reserva.valor_sinal,
+
+    valorAPagar:
+      reserva.valor_a_pagar,
+
+    saldoPendente:
+      reserva.saldo_pendente,
   };
 }
 
-function mimeEstatico(caminho) {
-  const extensao = path.extname(caminho).toLowerCase();
+function mimeEstatico(
+  caminho
+) {
+  const extensao =
+    path
+      .extname(caminho)
+      .toLowerCase();
 
   const tipos = {
-    '.html': 'text/html; charset=utf-8',
-    '.css': 'text/css; charset=utf-8',
-    '.js': 'application/javascript; charset=utf-8',
-    '.svg': 'image/svg+xml',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.webp': 'image/webp',
+    '.html':
+      'text/html; charset=utf-8',
+
+    '.css':
+      'text/css; charset=utf-8',
+
+    '.js':
+      'application/javascript; charset=utf-8',
+
+    '.svg':
+      'image/svg+xml',
+
+    '.png':
+      'image/png',
+
+    '.jpg':
+      'image/jpeg',
+
+    '.jpeg':
+      'image/jpeg',
+
+    '.webp':
+      'image/webp',
   };
 
-  return tipos[extensao] || 'application/octet-stream';
+  return (
+    tipos[extensao] ||
+    'application/octet-stream'
+  );
 }
 
-function servirEstatico(pathname, res) {
+/**
+ * Gera um bundle compatível com navegador para src/script.js.
+ *
+ * O arquivo fonte usa:
+ * require('@vercel/blob/client')
+ *
+ * Isso funciona no Node/bundler, mas não diretamente no Chrome.
+ * O esbuild empacota essa dependência antes de enviarmos /script.js.
+ */
+async function obterBrowserBundle() {
+  if (
+    !fs.existsSync(
+      SRC_SCRIPT
+    )
+  ) {
+    throw new HttpError(
+      500,
+      'O arquivo src/script.js não foi encontrado.',
+      'SCRIPT_FRONTEND_NAO_ENCONTRADO'
+    );
+  }
+
+  const stat =
+    fs.statSync(
+      SRC_SCRIPT
+    );
+
+  const mtime =
+    stat.mtimeMs;
+
+  if (
+    browserBundleCache &&
+    browserBundleMtime ===
+      mtime
+  ) {
+    return browserBundleCache;
+  }
+
+  const resultado =
+    await esbuild.build({
+      entryPoints: [
+        SRC_SCRIPT,
+      ],
+
+      bundle: true,
+
+      write: false,
+
+      platform:
+        'browser',
+
+      format:
+        'iife',
+
+      target: [
+        'es2020',
+      ],
+
+      sourcemap:
+        false,
+
+      minify:
+        false,
+
+      legalComments:
+        'none',
+
+      logLevel:
+        'silent',
+    });
+
+  const arquivoJS =
+    resultado.outputFiles
+      ?.find(
+        (arquivo) =>
+          arquivo.path.endsWith(
+            '.js'
+          )
+      ) ||
+    resultado.outputFiles?.[0];
+
+  if (!arquivoJS) {
+    throw new HttpError(
+      500,
+      'Não foi possível gerar o JavaScript do navegador.',
+      'BUNDLE_FRONTEND_INVALIDO'
+    );
+  }
+
+  browserBundleCache =
+    Buffer.from(
+      arquivoJS.contents
+    );
+
+  browserBundleMtime =
+    mtime;
+
+  return browserBundleCache;
+}
+
+async function servirScriptBrowser(
+  res
+) {
+  const conteudo =
+    await obterBrowserBundle();
+
+  cabecalhosSeguranca(
+    res
+  );
+
+  res.writeHead(
+    200,
+    {
+      'Content-Type':
+        'application/javascript; charset=utf-8',
+
+      'Content-Length':
+        conteudo.length,
+
+      'Cache-Control':
+        'no-cache',
+    }
+  );
+
+  res.end(
+    conteudo
+  );
+}
+
+async function servirEstatico(
+  pathname,
+  res
+) {
+  /**
+   * /script.js é especial.
+   *
+   * O fonte real está em src/script.js e precisa ser
+   * empacotado antes de chegar ao navegador.
+   */
+  if (
+    pathname ===
+    '/script.js'
+  ) {
+    await servirScriptBrowser(
+      res
+    );
+
+    return true;
+  }
+
   const mapa = {
-    '/': 'index.html',
-    '/index.html': 'index.html',
-    '/styles.css': 'styles.css',
-    '/script.js': 'script.js',
+    '/':
+      'index.html',
+
+    '/index.html':
+      'index.html',
+
+    '/styles.css':
+      'styles.css',
+    '/controle.js': 'controle.js',
+    '/controle-sw.js': 'controle-sw.js',
+    '/icons/controle-64.png': 'icons/controle-64.png',
+    '/icons/controle-180.png': 'icons/controle-180.png',
+    '/icons/controle-192.png': 'icons/controle-192.png',
+    '/icons/controle-512.png': 'icons/controle-512.png',
+    '/icons/controle-maskable-512.png': 'icons/controle-maskable-512.png',
   };
 
-  const arquivo = mapa[pathname];
+  const arquivo =
+    mapa[pathname];
 
-  if (!arquivo) return false;
+  if (!arquivo) {
+    return false;
+  }
 
-  const caminho = path.join(PUBLIC_DIR, arquivo);
-  const conteudo = fs.readFileSync(caminho);
+  const caminho =
+    path.join(
+      PUBLIC_DIR,
+      arquivo
+    );
 
-  cabecalhosSeguranca(res);
+  if (
+    !fs.existsSync(
+      caminho
+    )
+  ) {
+    throw new HttpError(
+      404,
+      `Arquivo estático não encontrado: ${arquivo}`,
+      'ARQUIVO_ESTATICO_NAO_ENCONTRADO'
+    );
+  }
 
-  res.writeHead(200, {
-    'Content-Type': mimeEstatico(caminho),
-    'Content-Length': conteudo.length,
-    'Cache-Control': 'no-cache',
-  });
+  const conteudo =
+    fs.readFileSync(
+      caminho
+    );
 
-  res.end(conteudo);
+  cabecalhosSeguranca(
+    res
+  );
+
+  res.writeHead(
+    200,
+    {
+      'Content-Type':
+        mimeEstatico(
+          caminho
+        ),
+
+      'Content-Length':
+        conteudo.length,
+
+      'Cache-Control':
+        'no-cache',
+    }
+  );
+
+  res.end(
+    conteudo
+  );
 
   return true;
 }
 
-function pinValido(pinRecebido) {
-  const esperado = Buffer.from(config.VALIDATION_PIN);
-  const recebido = Buffer.from(String(pinRecebido || ''));
+function pinValido(
+  pinRecebido
+) {
+  const esperado =
+    Buffer.from(
+      config.VALIDATION_PIN
+    );
 
-  if (esperado.length !== recebido.length) {
+  const recebido =
+    Buffer.from(
+      String(
+        pinRecebido ||
+          ''
+      )
+    );
+
+  if (
+    esperado.length !==
+    recebido.length
+  ) {
     return false;
   }
 
-  return crypto.timingSafeEqual(esperado, recebido);
+  return crypto
+    .timingSafeEqual(
+      esperado,
+      recebido
+    );
 }
 
-function chaveTentativa(req, token) {
-  const encaminhado = String(
-    req.headers['x-forwarded-for'] || ''
-  );
+function chaveTentativa(
+  req,
+  token
+) {
+  const encaminhado =
+    String(
+      req.headers[
+        'x-forwarded-for'
+      ] || ''
+    );
 
-  const ip = (
-    encaminhado.split(',')[0] ||
-    req.socket.remoteAddress ||
-    'desconhecido'
-  ).trim();
+  const ip =
+    (
+      encaminhado
+        .split(',')[0] ||
+      req.socket
+        .remoteAddress ||
+      'desconhecido'
+    ).trim();
 
   return crypto
-    .createHash('sha256')
-    .update(`${ip}:${token}`)
-    .digest('hex');
+    .createHash(
+      'sha256'
+    )
+    .update(
+      `${ip}:${token}`
+    )
+    .digest(
+      'hex'
+    );
 }
 
-async function verificarBloqueioPin(req, token) {
-  const chave = chaveTentativa(req, token);
-  const registro = await tentativaPinModel.buscar(chave);
+async function verificarBloqueioPin(
+  req,
+  token
+) {
+  const chave =
+    chaveTentativa(
+      req,
+      token
+    );
 
-  if (!registro?.bloqueado_ate) return;
+  const registro =
+    await tentativaPinModel
+      .buscar(
+        chave
+      );
 
   if (
-    new Date(registro.bloqueado_ate).getTime() <= Date.now()
+    !registro
+      ?.bloqueado_ate
   ) {
-    await tentativaPinModel.limpar(chave);
+    return;
+  }
+
+  if (
+    new Date(
+      registro
+        .bloqueado_ate
+    ).getTime() <=
+    Date.now()
+  ) {
+    await tentativaPinModel
+      .limpar(
+        chave
+      );
+
     return;
   }
 
@@ -349,67 +878,122 @@ async function verificarBloqueioPin(req, token) {
   );
 }
 
-async function registrarFalhaPin(req, token) {
-  await tentativaPinModel.registrarFalha(
-    chaveTentativa(req, token)
-  );
+async function registrarFalhaPin(
+  req,
+  token
+) {
+  await tentativaPinModel
+    .registrarFalha(
+      chaveTentativa(
+        req,
+        token
+      )
+    );
 }
 
-async function limparFalhasPin(req, token) {
-  await tentativaPinModel.limpar(
-    chaveTentativa(req, token)
-  );
+async function limparFalhasPin(
+  req,
+  token
+) {
+  await tentativaPinModel
+    .limpar(
+      chaveTentativa(
+        req,
+        token
+      )
+    );
 }
 
-function statusLabel(status) {
+function statusLabel(
+  status
+) {
   const labels = {
-    aguardando_validacao: 'Aguardando validação',
-    confirmado: 'Confirmado',
-    cancelado: 'Cancelado',
-    expirado: 'Expirado',
-    pendente: 'Pendente',
+    aguardando_validacao:
+      'Aguardando validação',
+
+    confirmado:
+      'Confirmado',
+
+    cancelado:
+      'Cancelado',
+
+    expirado:
+      'Expirado',
+
+    pendente:
+      'Pendente',
   };
 
-  return labels[status] || status;
+  return (
+    labels[status] ||
+    status
+  );
 }
 
-function petsHTML(reserva) {
-  const pets = Array.isArray(reserva.pets_detalhe)
-    ? reserva.pets_detalhe
-    : [];
+function petsHTML(
+  reserva
+) {
+  const pets =
+    Array.isArray(
+      reserva.pets_detalhe
+    )
+      ? reserva.pets_detalhe
+      : [];
 
   return pets
     .map(
-      (pet, index) => `
-      <article class="pet">
-        <strong>Pet ${index + 1}: ${escaparHTML(pet.nome)}</strong>
-        ${
-          pet.raca
-            ? `<span>Raça: ${escaparHTML(pet.raca)}</span>`
-            : ''
-        }
-        ${
-          pet.porte
-            ? `<span>Porte: ${escaparHTML(pet.porte)}</span>`
-            : ''
-        }
-        ${
-          pet.convive
-            ? `<span>Convivência: ${escaparHTML(pet.convive)}</span>`
-            : ''
-        }
-        ${
-          pet.castradoIdade
-            ? `<span>Castrado/idade: ${escaparHTML(
-                pet.castradoIdade
-              )}</span>`
-            : ''
-        }
-        <span>Cuidados: ${escaparHTML(
-          pet.cuidados || 'Não possui'
-        )}</span>
-      </article>
-    `
+      (
+        pet,
+        index
+      ) => `
+        <article class="pet">
+          <strong>
+            Pet ${index + 1}: ${escaparHTML(
+              pet.nome
+            )}
+          </strong>
+
+          ${
+            pet.raca
+              ? `<span>Raça: ${escaparHTML(
+                  pet.raca
+                )}</span>`
+              : ''
+          }
+
+          ${
+            pet.porte
+              ? `<span>Porte: ${escaparHTML(
+                  pet.porte
+                )}</span>`
+              : ''
+          }
+
+          ${
+            pet.convive
+              ? `<span>Convivência: ${escaparHTML(
+                  pet.convive
+                )}</span>`
+              : ''
+          }
+
+          ${
+            pet.castradoIdade
+              ? `<span>Castrado/idade: ${escaparHTML(
+                  pet.castradoIdade
+                )}</span>`
+              : ''
+          }
+
+          <span>
+            Cuidados:
+            ${escaparHTML(
+              pet.cuidados ||
+                'Não possui'
+            )}
+          </span>
+        </article>
+      `
     )
     .join('');
 }
@@ -423,40 +1007,56 @@ function renderValidacao(
   } = {}
 ) {
   const podeConfirmar =
-    reserva.status === 'aguardando_validacao';
+    reserva.status ===
+    'aguardando_validacao';
 
-  const podeCancelar = [
-    'aguardando_validacao',
-    'confirmado',
-  ].includes(reserva.status);
+  const podeCancelar =
+    [
+      'aguardando_validacao',
+      'confirmado',
+    ].includes(
+      reserva.status
+    );
 
-  const detalhesExtras = [
-    reserva.hora_entrada
-      ? `<div><span>Entrada</span><strong>${escaparHTML(
-          reserva.hora_entrada
-        )}</strong></div>`
-      : '',
-    reserva.hora_saida
-      ? `<div><span>Retirada</span><strong>${escaparHTML(
-          reserva.hora_saida
-        )}</strong></div>`
-      : '',
-    reserva.endereco
-      ? `<div><span>Endereço</span><strong>${escaparHTML(
-          reserva.endereco
-        )}</strong></div>`
-      : '',
-    reserva.visitas_dia
-      ? `<div><span>Visitas por dia</span><strong>${reserva.visitas_dia}</strong></div>`
-      : '',
-  ].join('');
+  const detalhesExtras =
+    [
+      reserva.hora_entrada
+        ? `<div><span>Entrada</span><strong>${escaparHTML(
+            reserva.hora_entrada
+          )}</strong></div>`
+        : '',
+
+      reserva.hora_saida
+        ? `<div><span>Retirada</span><strong>${escaparHTML(
+            reserva.hora_saida
+          )}</strong></div>`
+        : '',
+
+      reserva.endereco
+        ? `<div><span>Endereço</span><strong>${escaparHTML(
+            reserva.endereco
+          )}</strong></div>`
+        : '',
+
+      reserva.visitas_dia
+        ? `<div><span>Visitas por dia</span><strong>${reserva.visitas_dia}</strong></div>`
+        : '',
+    ].join('');
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Validação rápida — Patinhas Felizes</title>
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>
+    Validação rápida — Patinhas Felizes
+  </title>
+
   <style>
     :root {
       color-scheme: light;
@@ -662,79 +1262,138 @@ function renderValidacao(
 
 <body>
   <main>
-    <div class="brand">🐾 Patinhas Felizes</div>
+    <div class="brand">
+      🐾 Patinhas Felizes
+    </div>
 
     <section class="card">
-      <h1>Validação rápida</h1>
+      <h1>
+        Validação rápida
+      </h1>
 
       <p>
         Este link corresponde a um único pré-agendamento recebido pelo WhatsApp.
       </p>
 
       <span class="status">
-        ${escaparHTML(statusLabel(reserva.status))}
+        ${escaparHTML(
+          statusLabel(
+            reserva.status
+          )
+        )}
       </span>
 
       ${
         mensagem
           ? `<div class="message ${escaparHTML(
               tipoMensagem
-            )}">${escaparHTML(mensagem)}</div>`
+            )}">${escaparHTML(
+              mensagem
+            )}</div>`
           : ''
       }
 
       <div class="grid">
-        <div>
-          <span>Protocolo</span>
-          <strong>${escaparHTML(reserva.protocolo)}</strong>
-        </div>
 
         <div>
-          <span>Serviço</span>
-          <strong>${escaparHTML(
-            SERVICE_LABELS[reserva.servico] ||
-              reserva.servico
-          )}</strong>
-        </div>
+          <span>
+            Protocolo
+          </span>
 
-        <div>
-          <span>Tutor</span>
-          <strong>${escaparHTML(
-            reserva.nome_cliente
-          )}</strong>
-        </div>
-
-        <div>
-          <span>Telefone</span>
-          <strong>${escaparHTML(
-            reserva.telefone
-          )}</strong>
-        </div>
-
-        <div>
-          <span>Período</span>
           <strong>
-            ${formatarDataBR(reserva.entrada)}
-            até
-            ${formatarDataBR(reserva.saida)}
+            ${escaparHTML(
+              reserva.protocolo
+            )}
           </strong>
         </div>
 
         <div>
-          <span>Pets</span>
-          <strong>${reserva.quantidade_pets}</strong>
+          <span>
+            Serviço
+          </span>
+
+          <strong>
+            ${escaparHTML(
+              SERVICE_LABELS[
+                reserva.servico
+              ] ||
+                reserva.servico
+            )}
+          </strong>
         </div>
 
         <div>
-          <span>Valor total</span>
-          <strong>${moeda(reserva.valor_total)}</strong>
+          <span>
+            Tutor
+          </span>
+
+          <strong>
+            ${escaparHTML(
+              reserva.nome_cliente
+            )}
+          </strong>
         </div>
 
         <div>
-          <span>Sinal esperado</span>
-          <strong>${moeda(
-            reserva.valor_a_pagar
-          )}</strong>
+          <span>
+            Telefone
+          </span>
+
+          <strong>
+            ${escaparHTML(
+              reserva.telefone
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <span>
+            Período
+          </span>
+
+          <strong>
+            ${formatarDataBR(
+              reserva.entrada
+            )}
+            até
+            ${formatarDataBR(
+              reserva.saida
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <span>
+            Pets
+          </span>
+
+          <strong>
+            ${reserva.quantidade_pets}
+          </strong>
+        </div>
+
+        <div>
+          <span>
+            Valor total
+          </span>
+
+          <strong>
+            ${moeda(
+              reserva.valor_total
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <span>
+            Sinal esperado
+          </span>
+
+          <strong>
+            ${moeda(
+              reserva.valor_a_pagar
+            )}
+          </strong>
         </div>
 
         ${detalhesExtras}
@@ -767,7 +1426,9 @@ function renderValidacao(
         linkResposta
           ? `<a
                class="button whatsapp"
-               href="${escaparHTML(linkResposta)}"
+               href="${escaparHTML(
+                 linkResposta
+               )}"
                target="_blank"
                rel="noopener"
              >
@@ -777,260 +1438,436 @@ function renderValidacao(
       }
 
       ${
-        podeConfirmar || podeCancelar
+        podeConfirmar ||
+        podeCancelar
           ? `
-        <form
-          method="post"
-          action="/validacao/${encodeURIComponent(
-            reserva.token_validacao
-          )}"
-        >
-          <label for="pin">PIN da empresa</label>
+            <form
+              method="post"
+              action="/validacao/${encodeURIComponent(
+                reserva.token_validacao
+              )}"
+            >
+              <label for="pin">
+                PIN da empresa
+              </label>
 
-          <input
-            id="pin"
-            name="pin"
-            type="password"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            required
-            maxlength="32"
-            placeholder="Digite o PIN configurado no .env"
-          >
+              <input
+                id="pin"
+                name="pin"
+                type="password"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                required
+                maxlength="32"
+                placeholder="Digite o PIN configurado no .env"
+              >
 
-          <div class="actions">
-            ${
-              podeConfirmar
-                ? '<button class="confirm" type="submit" name="acao" value="confirmar">Confirmar reserva</button>'
-                : ''
-            }
+              <div class="actions">
 
-            ${
-              podeCancelar
-                ? '<button class="cancel" type="submit" name="acao" value="cancelar">Cancelar e liberar vagas</button>'
-                : ''
-            }
-          </div>
+                ${
+                  podeConfirmar
+                    ? '<button class="confirm" type="submit" name="acao" value="confirmar">Confirmar reserva</button>'
+                    : ''
+                }
 
-          <p class="note">
-            A vaga já fica reservada no sistema após o envio do comprovante.
-            A confirmação valida o pagamento e o cancelamento libera as vagas.
-          </p>
-        </form>
-      `
+                ${
+                  podeCancelar
+                    ? '<button class="cancel" type="submit" name="acao" value="cancelar">Cancelar e liberar vagas</button>'
+                    : ''
+                }
+
+              </div>
+
+              <p class="note">
+                A vaga já fica reservada no sistema após o envio do comprovante.
+                A confirmação valida o pagamento e o cancelamento libera as vagas.
+              </p>
+            </form>
+          `
           : ''
       }
+
     </section>
   </main>
 </body>
 </html>`;
 }
 
-async function rotear(req, res) {
-  const url = new URL(req.url, 'http://localhost');
-  const pathname = decodeURIComponent(url.pathname);
+async function rotear(
+  req,
+  res
+) {
+  const url =
+    new URL(
+      req.url,
+      'http://localhost'
+    );
+
+  const pathname =
+    decodeURIComponent(
+      url.pathname
+    );
 
   if (
-    req.method === 'GET' &&
-    servirEstatico(pathname, res)
+    req.method ===
+      'GET' &&
+    (
+      await servirEstatico(
+        pathname,
+        res
+      )
+    )
   ) {
     return;
   }
 
   if (
-    req.method === 'GET' &&
-    pathname === '/favicon.ico'
+    req.method ===
+      'GET' &&
+    pathname ===
+      '/favicon.ico'
   ) {
-    cabecalhosSeguranca(res);
+    cabecalhosSeguranca(
+      res
+    );
 
-    res.writeHead(204);
+    res.writeHead(
+      204
+    );
+
     res.end();
 
     return;
   }
 
   if (
-    req.method === 'GET' &&
-    pathname === '/api/configuracoes'
+    req.method ===
+      'GET' &&
+    pathname ===
+      '/api/pausas'
   ) {
-    enviarJSON(res, 200, {
-      ok: true,
-      configuracoes: {
-        appVersion: config.APP_VERSION,
-        hoje: hojeISOEmSaoPaulo(),
-        pixKey: config.PIX_KEY,
-        telefoneAtendimento: config.OWNER_WHATSAPP,
-        limiteVagasDiario: config.LIMITE_VAGAS_DIARIO,
-        maxPets: config.MAX_PETS_POR_RESERVA,
-        maxDiasHospedagem: config.MAX_DIAS_HOSPEDAGEM,
-        maxDiasCreche: config.MAX_DIAS_CRECHE,
-        maxDiasDomiciliar: config.MAX_DIAS_DOMICILIAR,
-        maxComprovanteMB: Math.floor(
-          config.MAX_COMPROVANTE_BYTES /
-            1024 /
-            1024
-        ),
-        precos: {
-          hospedagem:
-            config.PRECOS.HOSPEDAGEM_DIARIA,
-          creche: config.PRECOS.CRECHE,
-          domiciliar:
-            config.PRECOS.DOMICILIAR,
-          sinal: config.PRECOS.SINAL_RESERVA,
-        },
-      },
-    });
+    let pausas = [];
+
+    try {
+      pausas = (
+        await controleModel
+          .listarPausas()
+      ).map(
+        ({ inicio, fim, servico, motivo }) =>
+          ({ inicio, fim, servico, motivo })
+      );
+    } catch (error) {
+      console.error('[PAUSAS] Falha ao listar pausas:', error?.message || error);
+    }
+
+    enviarJSON(
+      res,
+      200,
+      { ok: true, pausas }
+    );
 
     return;
   }
 
   if (
-    req.method === 'POST' &&
-    pathname === '/api/disponibilidade'
+    req.method ===
+      'GET' &&
+    pathname ===
+      '/api/configuracoes'
   ) {
-    const payload = await lerJSON(req);
+    enviarJSON(
+      res,
+      200,
+      {
+        ok: true,
+
+        configuracoes: {
+          appVersion:
+            config.APP_VERSION,
+
+          hoje:
+            hojeISOEmSaoPaulo(),
+
+          pixKey:
+            config.PIX_KEY,
+
+          telefoneAtendimento:
+            config.OWNER_WHATSAPP,
+
+          limiteVagasDiario:
+            await controleModel.obterLimiteVagas(),
+
+          maxPets:
+            config.MAX_PETS_POR_RESERVA,
+
+          maxDiasHospedagem:
+            config.MAX_DIAS_HOSPEDAGEM,
+
+          maxDiasCreche:
+            config.MAX_DIAS_CRECHE,
+
+          maxDiasDomiciliar:
+            config.MAX_DIAS_DOMICILIAR,
+
+          maxComprovanteMB:
+            Math.floor(
+              config
+                .MAX_COMPROVANTE_BYTES /
+                1024 /
+                1024
+            ),
+
+          precos: {
+            hospedagem:
+              config.PRECOS
+                .HOSPEDAGEM_DIARIA,
+
+            creche:
+              config.PRECOS
+                .CRECHE,
+
+            domiciliar:
+              config.PRECOS
+                .DOMICILIAR,
+
+            sinal:
+              config.PRECOS
+                .SINAL_RESERVA,
+          },
+        },
+      }
+    );
+
+    return;
+  }
+
+  if (
+    req.method ===
+      'POST' &&
+    pathname ===
+      '/api/disponibilidade'
+  ) {
+    const payload =
+      await lerJSON(
+        req
+      );
 
     const preparado =
-      await prepararSolicitacao(payload);
+      await prepararSolicitacao(
+        payload
+      );
 
-    enviarJSON(res, 200, {
-      ok: true,
-      resumo: criarResumoCliente(preparado),
-    });
+    enviarJSON(
+      res,
+      200,
+      {
+        ok: true,
+
+        resumo:
+          criarResumoCliente(
+            preparado
+          ),
+      }
+    );
 
     return;
   }
 
   if (
-    req.method === 'POST' &&
-    pathname === '/api/comprovantes/autorizacao'
+    req.method ===
+      'POST' &&
+    pathname ===
+      '/api/comprovantes/autorizacao'
   ) {
-    const payload = await lerJSON(req);
+    const payload =
+      await lerJSON(
+        req
+      );
 
     const agendamento =
       payload.agendamento &&
-      typeof payload.agendamento === 'object'
+      typeof payload.agendamento ===
+        'object'
         ? payload.agendamento
         : {};
 
     const preparado =
-      await prepararSolicitacao(agendamento);
+      await prepararSolicitacao(
+        agendamento
+      );
 
     const arquivo =
-      comprovanteService.validarMetadadosArquivo(
-        payload.arquivo
-      );
+      comprovanteService
+        .validarMetadadosArquivo(
+          payload.arquivo
+        );
 
     const autorizacao =
-      uploadTicketService.criarTicket(preparado);
+      uploadTicketService
+        .criarTicket(
+          preparado
+        );
 
     const ticketPayload =
-      uploadTicketService.validarTicket(
-        autorizacao.ticket,
-        preparado
-      );
+      uploadTicketService
+        .validarTicket(
+          autorizacao.ticket,
+          preparado
+        );
 
     const pathnameBlob =
-      uploadTicketService.prefixoDoTicket(
-        ticketPayload
-      ) +
-      comprovanteService.normalizarNomeParaBlob(
-        arquivo.nomeArquivo,
-        arquivo.mime
-      );
+      uploadTicketService
+        .prefixoDoTicket(
+          ticketPayload
+        ) +
+      comprovanteService
+        .normalizarNomeParaBlob(
+          arquivo.nomeArquivo,
+          arquivo.mime
+        );
 
-    enviarJSON(res, 200, {
-      ok: true,
-      uploadTicket: autorizacao.ticket,
-      pathname: pathnameBlob,
-      expiraEm: autorizacao.expiraEm,
-    });
+    enviarJSON(
+      res,
+      200,
+      {
+        ok: true,
+
+        uploadTicket:
+          autorizacao.ticket,
+
+        pathname:
+          pathnameBlob,
+
+        expiraEm:
+          autorizacao.expiraEm,
+      }
+    );
 
     return;
   }
 
   if (
-    req.method === 'POST' &&
-    pathname === '/api/comprovantes/upload'
+    req.method ===
+      'POST' &&
+    pathname ===
+      '/api/comprovantes/upload'
   ) {
-    const body = await lerJSON(req);
+    const body =
+      await lerJSON(
+        req
+      );
 
     const {
       handleUpload,
-    } = require('@vercel/blob/client');
+    } =
+      require('@vercel/blob/client');
 
-    const jsonResponse = await handleUpload({
-      body,
-      request: req,
+    const jsonResponse =
+      await handleUpload({
+        body,
+        request: req,
 
-      onBeforeGenerateToken: async (
-        pathnameRecebido,
-        clientPayload
-      ) => {
-        const ticketPayload =
-          uploadTicketService.validarTicket(
+        onBeforeGenerateToken:
+          async (
+            pathnameRecebido,
             clientPayload
-          );
+          ) => {
+            const ticketPayload =
+              uploadTicketService
+                .validarTicket(
+                  clientPayload
+                );
 
-        const prefixo =
-          uploadTicketService.prefixoDoTicket(
-            ticketPayload
-          );
+            const prefixo =
+              uploadTicketService
+                .prefixoDoTicket(
+                  ticketPayload
+                );
 
-        if (
-          !String(pathnameRecebido || '').startsWith(
-            prefixo
-          ) ||
-          String(pathnameRecebido || '').includes('..')
-        ) {
-          throw new HttpError(
-            403,
-            'Destino de upload inválido.',
-            'UPLOAD_NAO_AUTORIZADO'
-          );
-        }
+            if (
+              !String(
+                pathnameRecebido ||
+                  ''
+              ).startsWith(
+                prefixo
+              ) ||
+              String(
+                pathnameRecebido ||
+                  ''
+              ).includes(
+                '..'
+              )
+            ) {
+              throw new HttpError(
+                403,
+                'Destino de upload inválido.',
+                'UPLOAD_NAO_AUTORIZADO'
+              );
+            }
 
-        return {
-          allowedContentTypes:
-            comprovanteService.TIPOS_PERMITIDOS,
+            return {
+              allowedContentTypes:
+                comprovanteService
+                  .TIPOS_PERMITIDOS,
 
-          maximumSizeInBytes:
-            config.MAX_COMPROVANTE_BYTES,
+              maximumSizeInBytes:
+                config
+                  .MAX_COMPROVANTE_BYTES,
 
-          addRandomSuffix: true,
+              addRandomSuffix:
+                true,
 
-          cacheControlMaxAge: 60,
+              cacheControlMaxAge:
+                60,
 
-          tokenPayload: JSON.stringify({
-            nonce: ticketPayload.nonce,
-          }),
-        };
-      },
-    });
+              tokenPayload:
+                JSON.stringify({
+                  nonce:
+                    ticketPayload
+                      .nonce,
+                }),
+            };
+          },
+      });
 
-    enviarJSON(res, 200, jsonResponse);
+    enviarJSON(
+      res,
+      200,
+      jsonResponse
+    );
 
     return;
   }
 
   if (
-    req.method === 'POST' &&
-    pathname === '/api/pre-agendamentos'
+    req.method ===
+      'POST' &&
+    pathname ===
+      '/api/pre-agendamentos'
   ) {
-    const payload = await lerJSON(req);
+    const payload =
+      await lerJSON(
+        req
+      );
 
     const preparado =
-      await prepararSolicitacao(payload);
+      await prepararSolicitacao(
+        payload
+      );
 
-    let comprovanteValidado = null;
-    let reservaCriada = false;
+    let comprovanteValidado =
+      null;
+
+    let reservaCriada =
+      false;
 
     try {
       comprovanteValidado =
-        await comprovanteService.validarBlobRecebido(
-          payload.comprovante,
-          preparado
-        );
+        await comprovanteService
+          .validarBlobRecebido(
+            payload.comprovante,
+            preparado
+          );
 
       const reserva =
         await gerarReservaComBlob(
@@ -1038,10 +1875,13 @@ async function rotear(req, res) {
           comprovanteValidado
         );
 
-      reservaCriada = true;
+      reservaCriada =
+        true;
 
       const baseUrl =
-        baseUrlDaRequisicao(req);
+        baseUrlDaRequisicao(
+          req
+        );
 
       const mensagem =
         montarMensagemWhatsApp(
@@ -1049,32 +1889,45 @@ async function rotear(req, res) {
           baseUrl
         );
 
-      enviarJSON(res, 201, {
-        ok: true,
+      enviarJSON(
+        res,
+        201,
+        {
+          ok: true,
 
-        reserva:
-          serializarReservaPublica(reserva),
+          reserva:
+            serializarReservaPublica(
+              reserva
+            ),
 
-        whatsappUrl:
-          montarLinkWhatsAppEmpresa(mensagem),
+          whatsappUrl:
+            montarLinkWhatsAppEmpresa(
+              mensagem
+            ),
 
-        mensagem:
-          'Comprovante recebido, vaga reservada e protocolo criado. Abra o WhatsApp e envie a mensagem preparada para o estabelecimento.',
-      });
+          mensagem:
+            'Comprovante recebido, vaga reservada e protocolo criado. Abra o WhatsApp e envie a mensagem preparada para o estabelecimento.',
+        }
+      );
 
       return;
     } catch (error) {
       if (
-        comprovanteValidado?.nomeInterno &&
+        comprovanteValidado
+          ?.nomeInterno &&
         !reservaCriada &&
         error?.code !==
           'COMPROVANTE_JA_UTILIZADO'
       ) {
         try {
-          await comprovanteService.removerComprovante(
-            comprovanteValidado.nomeInterno
-          );
-        } catch (cleanupError) {
+          await comprovanteService
+            .removerComprovante(
+              comprovanteValidado
+                .nomeInterno
+            );
+        } catch (
+          cleanupError
+        ) {
           console.error(
             '[BLOB] Falha ao limpar comprovante sem reserva:',
             cleanupError
@@ -1086,22 +1939,26 @@ async function rotear(req, res) {
     }
   }
 
-  const comprovanteMatch = pathname.match(
-    /^\/comprovante\/([a-f0-9]{48})\/?$/i
-  );
+  const comprovanteMatch =
+    pathname.match(
+      /^\/comprovante\/([a-f0-9]{48})\/?$/i
+    );
 
   if (
-    req.method === 'GET' &&
+    req.method ===
+      'GET' &&
     comprovanteMatch
   ) {
     const reserva =
-      await reservaModel.buscarPorTokenComprovante(
-        comprovanteMatch[1]
-      );
+      await reservaModel
+        .buscarPorTokenComprovante(
+          comprovanteMatch[1]
+        );
 
     if (
       !reserva ||
-      !reserva.comprovante_caminho
+      !reserva
+        .comprovante_caminho
     ) {
       throw new HttpError(
         404,
@@ -1111,9 +1968,11 @@ async function rotear(req, res) {
     }
 
     const resultado =
-      await comprovanteService.obterComprovante(
-        reserva.comprovante_caminho
-      );
+      await comprovanteService
+        .obterComprovante(
+          reserva
+            .comprovante_caminho
+        );
 
     if (
       !resultado?.stream ||
@@ -1126,69 +1985,101 @@ async function rotear(req, res) {
       );
     }
 
-    const nome = String(
-      reserva.comprovante_nome ||
-        'comprovante'
-    ).replace(/[\r\n"]/g, '_');
+    const nome =
+      String(
+        reserva
+          .comprovante_nome ||
+          'comprovante'
+      ).replace(
+        /[\r\n"]/g,
+        '_'
+      );
 
     const stream =
-      comprovanteService.streamParaNode(
-        resultado.stream
-      );
+      comprovanteService
+        .streamParaNode(
+          resultado.stream
+        );
 
-    cabecalhosSeguranca(res);
+    cabecalhosSeguranca(
+      res
+    );
 
-    res.writeHead(200, {
-      'Content-Type':
-        reserva.comprovante_mime ||
-        resultado.blob.contentType ||
-        'application/octet-stream',
+    res.writeHead(
+      200,
+      {
+        'Content-Type':
+          reserva
+            .comprovante_mime ||
+          resultado
+            .blob
+            .contentType ||
+          'application/octet-stream',
 
-      ...(resultado.blob.size
-        ? {
-            'Content-Length': String(
-              resultado.blob.size
-            ),
-          }
-        : {}),
+        ...(resultado
+          .blob.size
+          ? {
+              'Content-Length':
+                String(
+                  resultado
+                    .blob.size
+                ),
+            }
+          : {}),
 
-      'Content-Disposition':
-        `inline; filename="${nome}"`,
+        'Content-Disposition':
+          `inline; filename="${nome}"`,
 
-      'Cache-Control':
-        'private, no-store',
-    });
-
-    stream.on('error', (error) => {
-      console.error(
-        '[BLOB] Falha durante leitura do comprovante:',
-        error
-      );
-
-      if (!res.destroyed) {
-        res.destroy(error);
+        'Cache-Control':
+          'private, no-store',
       }
-    });
+    );
 
-    stream.pipe(res);
+    stream.on(
+      'error',
+      (
+        error
+      ) => {
+        console.error(
+          '[BLOB] Falha durante leitura do comprovante:',
+          error
+        );
+
+        if (
+          !res.destroyed
+        ) {
+          res.destroy(
+            error
+          );
+        }
+      }
+    );
+
+    stream.pipe(
+      res
+    );
 
     return;
   }
 
-  const validacaoMatch = pathname.match(
-    /^\/validacao\/([a-f0-9]{64})\/?$/i
-  );
+  const validacaoMatch =
+    pathname.match(
+      /^\/validacao\/([a-f0-9]{64})\/?$/i
+    );
 
   if (
     validacaoMatch &&
-    req.method === 'GET'
+    req.method ===
+      'GET'
   ) {
-    await reservaModel.expirarPendentes();
+    await reservaModel
+      .expirarPendentes();
 
     const reserva =
-      await reservaModel.buscarPorTokenValidacao(
-        validacaoMatch[1]
-      );
+      await reservaModel
+        .buscarPorTokenValidacao(
+          validacaoMatch[1]
+        );
 
     if (!reserva) {
       enviarHTML(
@@ -1203,7 +2094,9 @@ async function rotear(req, res) {
     enviarHTML(
       res,
       200,
-      renderValidacao(reserva)
+      renderValidacao(
+        reserva
+      )
     );
 
     return;
@@ -1211,7 +2104,8 @@ async function rotear(req, res) {
 
   if (
     validacaoMatch &&
-    req.method === 'POST'
+    req.method ===
+      'POST'
   ) {
     await verificarBloqueioPin(
       req,
@@ -1219,18 +2113,25 @@ async function rotear(req, res) {
     );
 
     const formulario =
-      await lerFormulario(req);
+      await lerFormulario(
+        req
+      );
 
-    if (!pinValido(formulario.pin)) {
+    if (
+      !pinValido(
+        formulario.pin
+      )
+    ) {
       await registrarFalhaPin(
         req,
         validacaoMatch[1]
       );
 
       const reserva =
-        await reservaModel.buscarPorTokenValidacao(
-          validacaoMatch[1]
-        );
+        await reservaModel
+          .buscarPorTokenValidacao(
+            validacaoMatch[1]
+          );
 
       if (!reserva) {
         throw new HttpError(
@@ -1243,11 +2144,16 @@ async function rotear(req, res) {
       enviarHTML(
         res,
         403,
-        renderValidacao(reserva, {
-          mensagem:
-            'PIN incorreto. Confira a variável VALIDATION_PIN configurada no ambiente.',
-          tipoMensagem: 'error',
-        })
+        renderValidacao(
+          reserva,
+          {
+            mensagem:
+              'PIN incorreto. Confira a variável VALIDATION_PIN configurada no ambiente.',
+
+            tipoMensagem:
+              'error',
+          }
+        )
       );
 
       return;
@@ -1258,22 +2164,32 @@ async function rotear(req, res) {
       validacaoMatch[1]
     );
 
-    const acao = String(
-      formulario.acao || ''
-    );
+    const acao =
+      String(
+        formulario.acao ||
+          ''
+      );
 
     let resultado;
 
-    if (acao === 'confirmar') {
+    if (
+      acao ===
+      'confirmar'
+    ) {
       resultado =
-        await reservaService.confirmarPorToken(
-          validacaoMatch[1]
-        );
-    } else if (acao === 'cancelar') {
+        await reservaService
+          .confirmarPorToken(
+            validacaoMatch[1]
+          );
+    } else if (
+      acao ===
+      'cancelar'
+    ) {
       resultado =
-        await reservaService.cancelarPorToken(
-          validacaoMatch[1]
-        );
+        await reservaService
+          .cancelarPorToken(
+            validacaoMatch[1]
+          );
     } else {
       throw new HttpError(
         400,
@@ -1284,46 +2200,75 @@ async function rotear(req, res) {
 
     const reserva =
       resultado.reserva ||
-      (await reservaModel.buscarPorTokenValidacao(
-        validacaoMatch[1]
-      ));
+      (
+        await reservaModel
+          .buscarPorTokenValidacao(
+            validacaoMatch[1]
+          )
+      );
 
-    const linkResposta = reserva
-      ? montarLinkRespostaCliente(
-          reserva,
-          resultado.ok &&
-            acao === 'confirmar'
-            ? 'confirmado'
-            : 'cancelado'
-        )
-      : '';
+    const linkResposta =
+      reserva
+        ? montarLinkRespostaCliente(
+            reserva,
+
+            resultado.ok &&
+              acao ===
+                'confirmar'
+              ? 'confirmado'
+              : 'cancelado'
+          )
+        : '';
 
     enviarHTML(
       res,
-      resultado.ok ? 200 : 409,
-      renderValidacao(reserva, {
-        mensagem: resultado.ok
-          ? acao === 'confirmar'
-            ? 'Pagamento validado e reserva confirmada. As vagas já estavam reservadas desde o envio do comprovante.'
-            : 'Reserva cancelada. As vagas foram liberadas.'
-          : resultado.error,
+      resultado.ok
+        ? 200
+        : 409,
 
-        tipoMensagem:
-          resultado.ok
-            ? 'ok'
-            : 'error',
+      renderValidacao(
+        reserva,
+        {
+          mensagem:
+            resultado.ok
+              ? acao ===
+                  'confirmar'
+                ? 'Pagamento validado e reserva confirmada. As vagas já estavam reservadas desde o envio do comprovante.'
+                : 'Reserva cancelada. As vagas foram liberadas.'
+              : resultado.error,
 
-        linkResposta:
-          resultado.ok
-            ? linkResposta
-            : '',
-      })
+          tipoMensagem:
+            resultado.ok
+              ? 'ok'
+              : 'error',
+
+          linkResposta:
+            resultado.ok
+              ? linkResposta
+              : '',
+        }
+      )
     );
 
     return;
   }
 
-  if (pathname.startsWith('/api/')) {
+  if (
+    await controleRoutes.tratar(
+      req,
+      res,
+      pathname,
+      { cabecalhosSeguranca, enviarJSON, lerJSON, HttpError }
+    )
+  ) {
+    return;
+  }
+
+  if (
+    pathname.startsWith(
+      '/api/'
+    )
+  ) {
     throw new HttpError(
       404,
       'Rota da API não encontrada.',
@@ -1339,29 +2284,46 @@ async function rotear(req, res) {
 }
 
 function createServer() {
-  return http.createServer(
-    async (req, res) => {
-      try {
-        await rotear(req, res);
-      } catch (error) {
-        if (res.headersSent) {
-          res.destroy();
-          return;
-        }
+  return http
+    .createServer(
+      async (
+        req,
+        res
+      ) => {
+        try {
+          await rotear(
+            req,
+            res
+          );
+        } catch (
+          error
+        ) {
+          if (
+            res.headersSent
+          ) {
+            res.destroy();
 
-        enviarErro(
-          res,
-          normalizarErro(error)
-        );
+            return;
+          }
+
+          enviarErro(
+            res,
+            normalizarErro(
+              error
+            )
+          );
+        }
       }
-    }
-  );
+    );
 }
 
-const server = createServer();
+const server =
+  createServer();
 
 function iniciar() {
-  if (server.listening) {
+  if (
+    server.listening
+  ) {
     return server;
   }
 
@@ -1378,18 +2340,29 @@ function iniciar() {
       );
 
       console.log(
-        'ℹ️ Não existe painel administrativo nesta versão.'
+        '✅ JavaScript do navegador é empacotado automaticamente pelo esbuild.'
+      );
+
+      console.log(
+        config.CONTROLE_TOKEN.length >= 32
+          ? `ℹ️ Painel do proprietário: http://localhost:${config.PORT}/controle/${config.CONTROLE_TOKEN}`
+          : 'ℹ️ Painel do proprietário desligado: defina CONTROLE_TOKEN (32+ caracteres).'
       );
 
       if (
-        config.VALIDATION_PIN === '2468'
+        config
+          .VALIDATION_PIN ===
+        '2468'
       ) {
         console.log(
           '⚠️ Troque o VALIDATION_PIN padrão nas variáveis de ambiente antes de publicar.'
         );
       }
 
-      if (!config.PUBLIC_BASE_URL) {
+      if (
+        !config
+          .PUBLIC_BASE_URL
+      ) {
         console.log(
           '⚠️ Em produção, configure PUBLIC_BASE_URL para gerar links acessíveis no celular.'
         );
@@ -1402,19 +2375,20 @@ function iniciar() {
   return server;
 }
 
-// A Vercel exige que o export principal seja
-// uma função ou um http.Server.
-//
-// Mantemos createServer/iniciar como propriedades
-// para os testes e para execução local.
-module.exports = server;
-module.exports.createServer = createServer;
-module.exports.iniciar = iniciar;
+module.exports =
+  server;
 
-// Localmente executamos o listen() normalmente.
-// Na Vercel ela recebe o http.Server exportado acima.
+module.exports
+  .createServer =
+  createServer;
+
+module.exports
+  .iniciar =
+  iniciar;
+
 if (
-  require.main === module &&
+  require.main ===
+    module &&
   !process.env.VERCEL
 ) {
   iniciar();

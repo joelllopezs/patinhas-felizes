@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Patinhas Controle</title>
+<meta name="theme-color" content="#4B257A">
+<link rel="manifest" href="__MANIFEST__">
+<link rel="icon" type="image/png" href="/icons/controle-64.png">
+<link rel="apple-touch-icon" href="/icons/controle-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Patinhas Controle">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F1EAF9;--card:#fff;--sand:#E6DBF3;--ink:#1A1A1A;--mut:#5E5470;--or:#825EBC;--line:#DCCFEC;--ok:#2f7d54;--bad:#c4452f;--warn:#d98a1f;--side:#4B257A;--head:#4B257A;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#16101F;--card:#221832;--sand:#2D2142;--ink:#F1EAF9;--mut:#B9AACF;--line:#3A2C52;--side:#0F0A17;--head:#E4D8F2}}
+:root[data-theme="dark"]{--bg:#16101F;--card:#221832;--sand:#2D2142;--ink:#F1EAF9;--mut:#B9AACF;--line:#3A2C52;--side:#0F0A17;--head:#E4D8F2}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px Nunito,system-ui,sans-serif}
+h1,h2,h3{font-family:'Baloo 2',system-ui,sans-serif;margin:0;color:var(--head)}.banner b{color:inherit}a:not(.btn){color:#6B43A5}
+.app{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}
+aside{background:var(--side);color:#F1EAF9;padding:22px 14px;position:sticky;top:0;height:100vh}
+.logo{font:800 20px 'Baloo 2';padding:0 8px 18px}.logo span{color:#D9C3F5}
+nav{display:grid;gap:6px}nav button{all:unset;cursor:pointer;padding:11px 12px;border-radius:12px;font-weight:700;color:#F1EAF9}
+nav button:hover{background:rgba(255,255,255,.08)}nav button.on{background:#6B43A5;outline:2px solid #F1EAF9}
+main{padding:28px 30px 50px;max-width:1100px;width:100%;display:grid;gap:16px;align-content:start;min-width:0}
+.sub{color:var(--mut);font-size:13.5px;margin-top:2px}.sm{font-size:12.5px;color:var(--mut)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;min-width:0}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{background:var(--or);color:#fff;border:0;border-radius:999px;padding:10px 17px;font:700 14px Nunito;cursor:pointer}
+.btn.g{background:transparent;color:var(--ink);border:1.5px solid var(--line)}.btn.s{padding:5px 12px;font-size:12px}
+.banner{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-radius:18px;padding:14px 16px;background:#E4D8F2;color:#4B257A}
+.banner.p{background:#f7d9d2;color:#8e2f1d}.banner .grow{flex:1;min-width:180px}.banner b{font:700 17px 'Baloo 2';display:block}
+.banner .btn{background:#4B257A;color:#fff}.banner.p .btn{background:#8e2f1d}
+.strip{display:flex;gap:7px;overflow-x:auto;padding-bottom:6px}
+.dy{flex:0 0 64px;text-align:center;border:1.5px solid var(--line);border-radius:14px;padding:8px 2px;background:var(--bg);cursor:pointer;font:inherit;color:var(--ink)}
+.dy small{display:block;color:var(--mut);font-size:11px;text-transform:uppercase}.dy b{font:800 20px 'Baloo 2';display:block;line-height:1.1}.dy em{font-style:normal;font-size:11px}
+.dy.sel{border-color:var(--or);background:var(--or);color:#fff}.dy.sel small{color:#fff}
+.dy.ps{background:repeating-linear-gradient(135deg,var(--sand) 0 6px,transparent 6px 12px)}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr))}
+.mod{border:1px solid var(--line);border-radius:16px;padding:14px;background:var(--bg)}
+.big{font:800 32px 'Baloo 2';line-height:1}
+.bar{height:8px;border-radius:6px;background:var(--sand);overflow:hidden;margin:9px 0}.bar u{display:block;height:100%;background:var(--or)}.bar u.f{background:var(--warn)}.bar u.z{background:var(--bad)}
+.step{display:flex;align-items:center;justify-content:space-between;margin-top:8px}.step button{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font-weight:800;cursor:pointer}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}.grow{flex:1;min-width:0}
+.av{width:38px;height:38px;border-radius:50%;background:var(--sand);display:grid;place-items:center;font-size:20px;flex:none}
+.tag{display:inline-block;font:700 11px Nunito;padding:3px 9px;border-radius:999px;border:0}
+.t-ok{background:#dcefe3;color:#17543a}.t-w{background:#fdebc8;color:#8a5a00}.t-b{background:#E4D8F2;color:#4B257A}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.chips button{border:1.5px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:5px 12px;font:600 13px Nunito;cursor:pointer}.chips button.on{background:var(--or);border-color:var(--or);color:#fff}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:760px}
+th{text-align:left;color:var(--mut);font-size:13px;padding:10px 8px;border-bottom:2px solid var(--line)}td{padding:11px 8px;border-bottom:1px solid var(--line);font-size:14px}
+td.o{color:var(--mut);font-size:13px}button.tag{cursor:pointer}
+label{display:grid;gap:4px;font-weight:700;font-size:13px}input,select,textarea{font:inherit;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);width:100%}
+.fg{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.md{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:9}.md.on{display:flex}.md .card{width:min(560px,100%);max-height:90vh;overflow:auto}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;display:none;z-index:10;font-weight:700}
+@media(max-width:780px){.app{grid-template-columns:minmax(0,1fr)}aside{position:static;height:auto;padding:12px}.logo{padding-bottom:8px}nav{display:flex;overflow-x:auto}nav button{white-space:nowrap}main{padding:18px 14px 40px}}
+
+a.btn{display:inline-block;text-decoration:none}.err{background:#f7d9d2;color:#8e2f1d;border-radius:14px;padding:12px 14px;font-weight:700}
+.t-r{background:#f7d9d2;color:#8e2f1d}.dim{opacity:.55}
+
+@media(max-width:560px){
+.row{flex-wrap:wrap;align-items:flex-start}
+.row .grow{flex:1 1 calc(100% - 52px)}
+.row .btn,.row a.btn{margin-left:48px}
+.row .btn+.btn,.row a.btn+.btn{margin-left:0}
+.banner .btn{width:100%}
+nav{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;overflow:visible}
+nav button{text-align:center;white-space:normal;font-size:12px;padding:8px 2px;line-height:1.25}
+h1{font-size:26px}
+.card{padding:13px}
+.md .card{padding:14px}
+.step{flex-wrap:wrap;gap:6px}
+}
+@media print{aside,.noprint,.chips,.top .btn{display:none!important}.app{display:block}main{padding:0;max-width:none}body{background:#fff;color:#000}.card{border:0;padding:0}table{min-width:0;font-size:11px}th,td{padding:5px 4px}.tw{overflow:visible}h1,h2,h3{color:#4B257A}}
+.inst{margin-top:14px}.inst .btn{width:100%;background:#F1EAF9;color:#4B257A}.inst p{margin:0;font-size:12px;line-height:1.35;color:#D9C3F5}@media(max-width:560px){.inst{margin-top:8px}}
+</style></head><body>
+<div class="app"><aside><div class="logo">🐾 Patinhas <span>Controle</span></div><nav id="nav"></nav><div id="inst" class="inst noprint" hidden></div></aside><main id="v"><div class="sub">Carregando…</div></main></div>
+<div class="md" id="md"><div class="card" id="mc"></div></div><div id="toast"></div>
+<script src="/controle.js"></script></body></html>

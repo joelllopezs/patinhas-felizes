@@ -163,6 +163,12 @@ module.exports =
           '2468'
       ),
 
+    CONTROLE_TOKEN:
+      String(
+        process.env.CONTROLE_TOKEN ||
+          ''
+      ).trim(),
+
     INSTAGRAM:
       '@Patinhasfelizesmarilia',
 

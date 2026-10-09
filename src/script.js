@@ -55,6 +55,7 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
   const btnBack = document.getElementById('btnBack');
   const btnNext = document.getElementById('btnNext');
   const wizardNav = document.getElementById('wizardNav');
+  let pausasLista = [];
   const pawProgress = document.getElementById('pawProgress');
   const humanCareNotice = document.getElementById('humanCareNotice');
   const selectedServiceAnimation = document.getElementById(
@@ -193,20 +194,20 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             <path d="M304 250 C316 220 335 197 373 188 C414 198 434 221 447 250Z" fill="#E7C99F"/>
 
             <g class="dog-hotel">
-              <rect x="255" y="78" width="250" height="125" rx="10" fill="#FFFDF7" stroke="#2C4A3B" stroke-width="5"/>
-              <path d="M232 91 L380 28 L528 91Z" fill="#E2703A" stroke="#2C4A3B" stroke-width="5" stroke-linejoin="round"/>
-              <rect x="347" y="130" width="66" height="73" rx="30 30 4 4" fill="#2C4A3B"/>
-              <rect x="278" y="112" width="49" height="44" rx="8" fill="#D8ECF0" stroke="#2C4A3B" stroke-width="4"/>
-              <path d="M302 112 V156 M278 134 H327" stroke="#2C4A3B" stroke-width="3"/>
-              <rect x="435" y="112" width="49" height="44" rx="8" fill="#D8ECF0" stroke="#2C4A3B" stroke-width="4"/>
-              <path d="M459 112 V156 M435 134 H484" stroke="#2C4A3B" stroke-width="3"/>
-              <rect x="312" y="58" width="136" height="34" rx="17" fill="#F0B429" stroke="#2C4A3B" stroke-width="4"/>
+              <rect x="255" y="78" width="250" height="125" rx="10" fill="#FFFDF7" stroke="#4B257A" stroke-width="5"/>
+              <path d="M232 91 L380 28 L528 91Z" fill="#825EBC" stroke="#4B257A" stroke-width="5" stroke-linejoin="round"/>
+              <rect x="347" y="130" width="66" height="73" rx="30 30 4 4" fill="#4B257A"/>
+              <rect x="278" y="112" width="49" height="44" rx="8" fill="#D8ECF0" stroke="#4B257A" stroke-width="4"/>
+              <path d="M302 112 V156 M278 134 H327" stroke="#4B257A" stroke-width="3"/>
+              <rect x="435" y="112" width="49" height="44" rx="8" fill="#D8ECF0" stroke="#4B257A" stroke-width="4"/>
+              <path d="M459 112 V156 M435 134 H484" stroke="#4B257A" stroke-width="3"/>
+              <rect x="312" y="58" width="136" height="34" rx="17" fill="#F0B429" stroke="#4B257A" stroke-width="4"/>
               <text x="380" y="81" text-anchor="middle" class="story-sign-text">HOTEL PET</text>
             </g>
 
             <g class="dog-bowl">
               <ellipse cx="548" cy="214" rx="28" ry="9" fill="#B14F27" opacity=".2"/>
-              <path d="M522 195 Q548 208 574 195 L568 216 Q548 225 528 216Z" fill="#E2703A" stroke="#2C4A3B" stroke-width="3"/>
+              <path d="M522 195 Q548 208 574 195 L568 216 Q548 225 528 216Z" fill="#825EBC" stroke="#4B257A" stroke-width="3"/>
               <circle cx="540" cy="199" r="4" fill="#805B3C"/>
               <circle cx="550" cy="201" r="4" fill="#805B3C"/>
               <circle cx="560" cy="198" r="4" fill="#805B3C"/>
@@ -214,15 +215,15 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
 
             <g class="dog-bed">
               <ellipse cx="635" cy="214" rx="43" ry="12" fill="#D5A89F"/>
-              <rect x="599" y="191" width="72" height="25" rx="13" fill="#F3C6C0" stroke="#2C4A3B" stroke-width="3"/>
+              <rect x="599" y="191" width="72" height="25" rx="13" fill="#F3C6C0" stroke="#4B257A" stroke-width="3"/>
               <ellipse cx="635" cy="196" rx="25" ry="8" fill="#FFF4EE"/>
             </g>
 
             <g class="dog-character dog-character-one">
               <ellipse class="dog-shadow" cx="145" cy="222" rx="42" ry="10" fill="#1E3329" opacity=".14"/>
               <g class="dog-body-group">
-                <ellipse cx="145" cy="186" rx="39" ry="31" fill="#C9874E" stroke="#2C4A3B" stroke-width="4"/>
-                <circle cx="127" cy="158" r="27" fill="#D99B61" stroke="#2C4A3B" stroke-width="4"/>
+                <ellipse cx="145" cy="186" rx="39" ry="31" fill="#C9874E" stroke="#4B257A" stroke-width="4"/>
+                <circle cx="127" cy="158" r="27" fill="#D99B61" stroke="#4B257A" stroke-width="4"/>
                 <ellipse class="dog-ear-left" cx="108" cy="143" rx="12" ry="22" fill="#8E5B35" transform="rotate(-28 108 143)"/>
                 <ellipse class="dog-ear-right" cx="145" cy="142" rx="12" ry="22" fill="#8E5B35" transform="rotate(24 145 142)"/>
                 <circle cx="119" cy="155" r="3.6" fill="#1E3329"/>
@@ -233,17 +234,17 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
                 <rect x="119" y="206" width="11" height="24" rx="5" fill="#8E5B35"/>
                 <rect x="155" y="206" width="11" height="24" rx="5" fill="#8E5B35"/>
                 <path d="M112 180 Q145 194 177 180" fill="none" stroke="#F0B429" stroke-width="7"/>
-                <circle cx="145" cy="190" r="7" fill="#F0B429" stroke="#2C4A3B" stroke-width="2"/>
+                <circle cx="145" cy="190" r="7" fill="#F0B429" stroke="#4B257A" stroke-width="2"/>
               </g>
             </g>
 
             <g class="dog-character dog-character-two">
               <ellipse class="dog-shadow" cx="239" cy="225" rx="33" ry="8" fill="#1E3329" opacity=".12"/>
               <g class="dog-body-group dog-two-hop">
-                <ellipse cx="238" cy="193" rx="31" ry="25" fill="#FFF6E9" stroke="#2C4A3B" stroke-width="4"/>
-                <circle cx="231" cy="168" r="22" fill="#FFF6E9" stroke="#2C4A3B" stroke-width="4"/>
-                <path d="M216 153 Q203 139 207 126 Q226 134 225 151Z" fill="#70523D" stroke="#2C4A3B" stroke-width="3"/>
-                <path d="M243 152 Q252 136 264 132 Q267 149 252 160Z" fill="#70523D" stroke="#2C4A3B" stroke-width="3"/>
+                <ellipse cx="238" cy="193" rx="31" ry="25" fill="#FFF6E9" stroke="#4B257A" stroke-width="4"/>
+                <circle cx="231" cy="168" r="22" fill="#FFF6E9" stroke="#4B257A" stroke-width="4"/>
+                <path d="M216 153 Q203 139 207 126 Q226 134 225 151Z" fill="#70523D" stroke="#4B257A" stroke-width="3"/>
+                <path d="M243 152 Q252 136 264 132 Q267 149 252 160Z" fill="#70523D" stroke="#4B257A" stroke-width="3"/>
                 <circle cx="224" cy="166" r="3" fill="#1E3329"/>
                 <circle cx="239" cy="166" r="3" fill="#1E3329"/>
                 <circle cx="232" cy="174" r="4.5" fill="#1E3329"/>
@@ -261,11 +262,11 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             </g>
 
             <g class="story-heart dog-heart">
-              <path d="M192 116 C182 102 158 111 164 130 C171 147 192 158 192 158 C192 158 214 146 220 130 C227 111 202 102 192 116Z" fill="#E2703A"/>
+              <path d="M192 116 C182 102 158 111 164 130 C171 147 192 158 192 158 C192 158 214 146 220 130 C227 111 202 102 192 116Z" fill="#825EBC"/>
             </g>
 
             <g class="story-bone">
-              <path d="M588 142 C579 135 567 141 568 151 C558 151 554 164 564 170 C561 181 574 186 581 178 L615 151 C622 157 634 151 632 141 C642 136 637 123 627 124 C625 113 612 112 607 122Z" fill="#FFFDF7" stroke="#2C4A3B" stroke-width="3"/>
+              <path d="M588 142 C579 135 567 141 568 151 C558 151 554 164 564 170 C561 181 574 186 581 178 L615 151 C622 157 634 151 632 141 C642 136 637 123 627 124 C625 113 612 112 607 122Z" fill="#FFFDF7" stroke="#4B257A" stroke-width="3"/>
             </g>
           </svg>
 
@@ -290,7 +291,7 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             <rect x="0" y="198" width="760" height="52" fill="#D8BE9D"/>
 
             <g class="cat-window">
-              <rect x="70" y="35" width="145" height="112" rx="12" fill="#263B4A" stroke="#2C4A3B" stroke-width="5"/>
+              <rect x="70" y="35" width="145" height="112" rx="12" fill="#263B4A" stroke="#4B257A" stroke-width="5"/>
               <circle class="cat-moon" cx="174" cy="66" r="22" fill="#F8E7A4"/>
               <circle cx="184" cy="61" r="22" fill="#263B4A"/>
               <circle class="cat-star cat-star-one" cx="104" cy="63" r="4" fill="#FFF4B8"/>
@@ -304,30 +305,30 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
               <rect x="495" y="188" width="75" height="13" rx="7" fill="#6E563F"/>
               <rect x="495" y="80" width="75" height="14" rx="7" fill="#6E563F"/>
               <path d="M506 96 H556 M506 106 H556 M506 116 H556 M506 126 H556 M506 136 H556 M506 146 H556 M506 156 H556 M506 166 H556 M506 176 H556" stroke="#D1B084" stroke-width="3"/>
-              <line x1="533" y1="80" x2="533" y2="52" stroke="#2C4A3B" stroke-width="3"/>
-              <circle class="cat-hanging-toy" cx="533" cy="45" r="10" fill="#E2703A"/>
+              <line x1="533" y1="80" x2="533" y2="52" stroke="#4B257A" stroke-width="3"/>
+              <circle class="cat-hanging-toy" cx="533" cy="45" r="10" fill="#825EBC"/>
             </g>
 
             <g class="cat-bed">
               <ellipse cx="646" cy="209" rx="53" ry="14" fill="#6C8B77" opacity=".22"/>
-              <path d="M590 185 Q646 158 702 185 L692 218 Q646 235 600 218Z" fill="#F3C6C0" stroke="#2C4A3B" stroke-width="4"/>
+              <path d="M590 185 Q646 158 702 185 L692 218 Q646 235 600 218Z" fill="#F3C6C0" stroke="#4B257A" stroke-width="4"/>
               <ellipse cx="646" cy="191" rx="39" ry="14" fill="#FFF7EE"/>
             </g>
 
             <g class="cat-character cat-character-main">
               <ellipse cx="359" cy="220" rx="42" ry="9" fill="#1E3329" opacity=".12"/>
               <g class="cat-main-body">
-                <ellipse cx="358" cy="184" rx="38" ry="34" fill="#B9A1D8" stroke="#2C4A3B" stroke-width="4"/>
-                <circle cx="356" cy="145" r="29" fill="#C8B2E2" stroke="#2C4A3B" stroke-width="4"/>
-                <path d="M335 128 L341 104 L354 125Z" fill="#C8B2E2" stroke="#2C4A3B" stroke-width="4"/>
-                <path d="M375 127 L381 103 L392 132Z" fill="#C8B2E2" stroke="#2C4A3B" stroke-width="4"/>
+                <ellipse cx="358" cy="184" rx="38" ry="34" fill="#B9A1D8" stroke="#4B257A" stroke-width="4"/>
+                <circle cx="356" cy="145" r="29" fill="#C8B2E2" stroke="#4B257A" stroke-width="4"/>
+                <path d="M335 128 L341 104 L354 125Z" fill="#C8B2E2" stroke="#4B257A" stroke-width="4"/>
+                <path d="M375 127 L381 103 L392 132Z" fill="#C8B2E2" stroke="#4B257A" stroke-width="4"/>
                 <path d="M339 123 L343 112 L349 124Z" fill="#F3C6C0"/>
                 <path d="M378 123 L381 112 L386 126Z" fill="#F3C6C0"/>
                 <ellipse class="cat-eye-left" cx="346" cy="144" rx="4" ry="7" fill="#1E3329"/>
                 <ellipse class="cat-eye-right" cx="369" cy="144" rx="4" ry="7" fill="#1E3329"/>
-                <path d="M353 157 L360 157 L356 162Z" fill="#E2703A"/>
+                <path d="M353 157 L360 157 L356 162Z" fill="#825EBC"/>
                 <path d="M356 162 Q350 168 344 163 M356 162 Q362 168 368 163" fill="none" stroke="#1E3329" stroke-width="2.5" stroke-linecap="round"/>
-                <path d="M332 154 L306 149 M332 160 L304 162 M379 154 L405 149 M379 160 L407 163" stroke="#2C4A3B" stroke-width="2" stroke-linecap="round"/>
+                <path d="M332 154 L306 149 M332 160 L304 162 M379 154 L405 149 M379 160 L407 163" stroke="#4B257A" stroke-width="2" stroke-linecap="round"/>
                 <path class="cat-tail-main" d="M390 181 Q432 159 421 125 Q414 108 398 117" fill="none" stroke="#B9A1D8" stroke-width="13" stroke-linecap="round"/>
                 <rect x="336" y="207" width="12" height="22" rx="6" fill="#9C84BE"/>
                 <rect x="369" y="207" width="12" height="22" rx="6" fill="#9C84BE"/>
@@ -336,19 +337,19 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
 
             <g class="cat-character cat-character-peek">
               <g class="cat-peek-body">
-                <circle cx="654" cy="174" r="25" fill="#E8A85D" stroke="#2C4A3B" stroke-width="4"/>
-                <path d="M636 158 L638 137 L651 156Z" fill="#E8A85D" stroke="#2C4A3B" stroke-width="3"/>
-                <path d="M670 156 L680 138 L687 163Z" fill="#E8A85D" stroke="#2C4A3B" stroke-width="3"/>
+                <circle cx="654" cy="174" r="25" fill="#E8A85D" stroke="#4B257A" stroke-width="4"/>
+                <path d="M636 158 L638 137 L651 156Z" fill="#E8A85D" stroke="#4B257A" stroke-width="3"/>
+                <path d="M670 156 L680 138 L687 163Z" fill="#E8A85D" stroke="#4B257A" stroke-width="3"/>
                 <circle cx="647" cy="174" r="3" fill="#1E3329"/>
                 <circle cx="663" cy="174" r="3" fill="#1E3329"/>
-                <path d="M652 184 L658 184 L655 188Z" fill="#E2703A"/>
+                <path d="M652 184 L658 184 L655 188Z" fill="#825EBC"/>
               </g>
             </g>
 
             <g class="cat-yarn">
-              <circle cx="276" cy="210" r="19" fill="#E2703A" stroke="#2C4A3B" stroke-width="3"/>
+              <circle cx="276" cy="210" r="19" fill="#825EBC" stroke="#4B257A" stroke-width="3"/>
               <path d="M263 202 Q278 216 288 196 M261 213 Q279 198 292 215 M271 192 Q274 211 293 207" fill="none" stroke="#FBD2B9" stroke-width="3"/>
-              <path class="cat-yarn-string" d="M292 215 Q320 235 335 211" fill="none" stroke="#E2703A" stroke-width="3" stroke-linecap="round"/>
+              <path class="cat-yarn-string" d="M292 215 Q320 235 335 211" fill="none" stroke="#825EBC" stroke-width="3" stroke-linecap="round"/>
             </g>
 
             <g class="story-paw-trail cat-paw-trail">
@@ -404,16 +405,16 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             </g>
 
             <g class="daycare-sign">
-              <rect x="282" y="56" width="196" height="58" rx="18" fill="#FFFDF7" stroke="#2C4A3B" stroke-width="4"/>
+              <rect x="282" y="56" width="196" height="58" rx="18" fill="#FFFDF7" stroke="#4B257A" stroke-width="4"/>
               <text x="380" y="91" text-anchor="middle" class="story-sign-text">CRECHE PET</text>
-              <path d="M315 116 L305 150 M445 116 L455 150" stroke="#2C4A3B" stroke-width="5" stroke-linecap="round"/>
+              <path d="M315 116 L305 150 M445 116 L455 150" stroke="#4B257A" stroke-width="5" stroke-linecap="round"/>
             </g>
 
             <g class="daycare-dog-character">
               <ellipse cx="203" cy="221" rx="39" ry="9" fill="#1E3329" opacity=".12"/>
               <g class="daycare-dog-runner">
-                <ellipse cx="202" cy="188" rx="36" ry="28" fill="#E5B176" stroke="#2C4A3B" stroke-width="4"/>
-                <circle cx="178" cy="168" r="25" fill="#E5B176" stroke="#2C4A3B" stroke-width="4"/>
+                <ellipse cx="202" cy="188" rx="36" ry="28" fill="#E5B176" stroke="#4B257A" stroke-width="4"/>
+                <circle cx="178" cy="168" r="25" fill="#E5B176" stroke="#4B257A" stroke-width="4"/>
                 <ellipse cx="162" cy="150" rx="10" ry="20" fill="#8A5D38" transform="rotate(-30 162 150)"/>
                 <circle cx="171" cy="166" r="3" fill="#1E3329"/>
                 <circle cx="186" cy="166" r="3" fill="#1E3329"/>
@@ -426,26 +427,26 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             <g class="daycare-cat-character">
               <ellipse cx="534" cy="221" rx="34" ry="8" fill="#1E3329" opacity=".12"/>
               <g class="daycare-cat-jumper">
-                <ellipse cx="536" cy="186" rx="31" ry="26" fill="#8FA7C5" stroke="#2C4A3B" stroke-width="4"/>
-                <circle cx="537" cy="158" r="22" fill="#9DB5D1" stroke="#2C4A3B" stroke-width="4"/>
-                <path d="M520 145 L524 124 L536 143Z" fill="#9DB5D1" stroke="#2C4A3B" stroke-width="3"/>
-                <path d="M550 143 L558 124 L567 150Z" fill="#9DB5D1" stroke="#2C4A3B" stroke-width="3"/>
+                <ellipse cx="536" cy="186" rx="31" ry="26" fill="#8FA7C5" stroke="#4B257A" stroke-width="4"/>
+                <circle cx="537" cy="158" r="22" fill="#9DB5D1" stroke="#4B257A" stroke-width="4"/>
+                <path d="M520 145 L524 124 L536 143Z" fill="#9DB5D1" stroke="#4B257A" stroke-width="3"/>
+                <path d="M550 143 L558 124 L567 150Z" fill="#9DB5D1" stroke="#4B257A" stroke-width="3"/>
                 <circle cx="530" cy="158" r="3" fill="#1E3329"/>
                 <circle cx="544" cy="158" r="3" fill="#1E3329"/>
-                <path d="M534 167 L540 167 L537 171Z" fill="#E2703A"/>
+                <path d="M534 167 L540 167 L537 171Z" fill="#825EBC"/>
                 <path class="daycare-cat-tail" d="M565 181 Q602 162 592 135" fill="none" stroke="#8FA7C5" stroke-width="10" stroke-linecap="round"/>
                 <path d="M520 205 L507 222 M550 205 L565 221" stroke="#748EAD" stroke-width="8" stroke-linecap="round"/>
               </g>
             </g>
 
             <g class="daycare-ball">
-              <circle cx="382" cy="198" r="19" fill="#F0B429" stroke="#2C4A3B" stroke-width="3"/>
+              <circle cx="382" cy="198" r="19" fill="#F0B429" stroke="#4B257A" stroke-width="3"/>
               <path d="M365 193 Q382 184 399 193 M369 207 Q382 198 395 207" fill="none" stroke="#FFF7D6" stroke-width="4"/>
               <ellipse class="ball-shadow" cx="382" cy="225" rx="20" ry="5" fill="#1E3329" opacity=".15"/>
             </g>
 
             <g class="daycare-frisbee">
-              <ellipse cx="458" cy="144" rx="27" ry="10" fill="#E2703A" stroke="#2C4A3B" stroke-width="3"/>
+              <ellipse cx="458" cy="144" rx="27" ry="10" fill="#825EBC" stroke="#4B257A" stroke-width="3"/>
               <ellipse cx="458" cy="142" rx="16" ry="5" fill="#F6B08A"/>
             </g>
 
@@ -456,7 +457,7 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             </g>
 
             <g class="daycare-confetti">
-              <circle class="confetti c1" cx="336" cy="128" r="5" fill="#E2703A"/>
+              <circle class="confetti c1" cx="336" cy="128" r="5" fill="#825EBC"/>
               <circle class="confetti c2" cx="405" cy="127" r="5" fill="#F0B429"/>
               <circle class="confetti c3" cx="430" cy="168" r="5" fill="#5D9468"/>
               <path class="confetti c4" d="M355 148 l9 -9" stroke="#8FA7C5" stroke-width="5" stroke-linecap="round"/>
@@ -484,17 +485,17 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             <rect x="0" y="210" width="760" height="40" fill="#B8D3A5"/>
 
             <g class="home-house">
-              <rect x="80" y="74" width="286" height="142" rx="8" fill="#FFF9EE" stroke="#2C4A3B" stroke-width="5"/>
-              <path d="M56 84 L222 24 L390 84Z" fill="#E2703A" stroke="#2C4A3B" stroke-width="5" stroke-linejoin="round"/>
-              <rect x="112" y="111" width="72" height="62" rx="8" fill="#D5E8ED" stroke="#2C4A3B" stroke-width="4"/>
-              <path d="M148 111 V173 M112 142 H184" stroke="#2C4A3B" stroke-width="3"/>
-              <rect x="270" y="106" width="68" height="110" rx="6" fill="#855A3D" stroke="#2C4A3B" stroke-width="4"/>
+              <rect x="80" y="74" width="286" height="142" rx="8" fill="#FFF9EE" stroke="#4B257A" stroke-width="5"/>
+              <path d="M56 84 L222 24 L390 84Z" fill="#825EBC" stroke="#4B257A" stroke-width="5" stroke-linejoin="round"/>
+              <rect x="112" y="111" width="72" height="62" rx="8" fill="#D5E8ED" stroke="#4B257A" stroke-width="4"/>
+              <path d="M148 111 V173 M112 142 H184" stroke="#4B257A" stroke-width="3"/>
+              <rect x="270" y="106" width="68" height="110" rx="6" fill="#855A3D" stroke="#4B257A" stroke-width="4"/>
               <circle cx="323" cy="161" r="4" fill="#F0B429"/>
               <rect x="205" y="193" width="63" height="23" rx="4" fill="#C59260"/>
             </g>
 
             <g class="home-door-open">
-              <path class="home-door-panel" d="M270 106 L234 118 L234 216 L270 216Z" fill="#A56C45" stroke="#2C4A3B" stroke-width="4"/>
+              <path class="home-door-panel" d="M270 106 L234 118 L234 216 L270 216Z" fill="#A56C45" stroke="#4B257A" stroke-width="4"/>
               <circle cx="242" cy="164" r="3.5" fill="#F0B429"/>
             </g>
 
@@ -511,11 +512,11 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
               <g class="home-caregiver-walk">
                 <circle cx="584" cy="118" r="17" fill="#C98D68"/>
                 <path d="M567 118 Q584 90 601 117 Q594 100 584 100 Q573 101 567 118Z" fill="#56392E"/>
-                <rect x="566" y="134" width="37" height="54" rx="14" fill="#E2703A"/>
+                <rect x="566" y="134" width="37" height="54" rx="14" fill="#825EBC"/>
                 <path class="caregiver-wave-arm" d="M598 143 Q619 126 622 108" fill="none" stroke="#C98D68" stroke-width="10" stroke-linecap="round"/>
                 <path d="M570 184 L560 218 M595 184 L605 218" stroke="#35596B" stroke-width="10" stroke-linecap="round"/>
-                <rect x="604" y="151" width="25" height="34" rx="6" fill="#2C4A3B"/>
-                <path d="M610 151 Q616 140 623 151" fill="none" stroke="#2C4A3B" stroke-width="4"/>
+                <rect x="604" y="151" width="25" height="34" rx="6" fill="#4B257A"/>
+                <path d="M610 151 Q616 140 623 151" fill="none" stroke="#4B257A" stroke-width="4"/>
                 <circle cx="616" cy="165" r="4" fill="#F0B429"/>
               </g>
             </g>
@@ -523,8 +524,8 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             <g class="home-dog">
               <ellipse class="home-dog-shadow" cx="443" cy="226" rx="34" ry="7" fill="#1E3329" opacity=".13"/>
               <g class="home-dog-run">
-                <ellipse cx="442" cy="198" rx="31" ry="23" fill="#E3B06D" stroke="#2C4A3B" stroke-width="4"/>
-                <circle cx="464" cy="181" r="20" fill="#E3B06D" stroke="#2C4A3B" stroke-width="4"/>
+                <ellipse cx="442" cy="198" rx="31" ry="23" fill="#E3B06D" stroke="#4B257A" stroke-width="4"/>
+                <circle cx="464" cy="181" r="20" fill="#E3B06D" stroke="#4B257A" stroke-width="4"/>
                 <ellipse cx="477" cy="166" rx="9" ry="16" fill="#855A3D" transform="rotate(28 477 166)"/>
                 <circle cx="458" cy="180" r="3" fill="#1E3329"/>
                 <circle cx="471" cy="181" r="3" fill="#1E3329"/>
@@ -536,9 +537,9 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
 
             <g class="home-cat">
               <g class="home-cat-peek">
-                <circle cx="172" cy="194" r="18" fill="#A8A4A2" stroke="#2C4A3B" stroke-width="3"/>
-                <path d="M159 181 L161 164 L172 179Z" fill="#A8A4A2" stroke="#2C4A3B" stroke-width="2"/>
-                <path d="M183 180 L190 164 L196 184Z" fill="#A8A4A2" stroke="#2C4A3B" stroke-width="2"/>
+                <circle cx="172" cy="194" r="18" fill="#A8A4A2" stroke="#4B257A" stroke-width="3"/>
+                <path d="M159 181 L161 164 L172 179Z" fill="#A8A4A2" stroke="#4B257A" stroke-width="2"/>
+                <path d="M183 180 L190 164 L196 184Z" fill="#A8A4A2" stroke="#4B257A" stroke-width="2"/>
                 <circle cx="167" cy="193" r="2.5" fill="#1E3329"/>
                 <circle cx="178" cy="193" r="2.5" fill="#1E3329"/>
               </g>
@@ -551,7 +552,7 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             </g>
 
             <g class="home-heart">
-              <path d="M515 116 C506 102 486 108 489 125 C494 140 515 151 515 151 C515 151 536 140 541 125 C544 108 524 102 515 116Z" fill="#E2703A"/>
+              <path d="M515 116 C506 102 486 108 489 125 C494 140 515 151 515 151 C515 151 536 140 541 125 C544 108 524 102 515 116Z" fill="#825EBC"/>
             </g>
 
             <g class="home-knock">
@@ -827,6 +828,8 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
 
     btnNext.disabled =
       !serverReady;
+
+    atualizarAvisoPausa();
   }
 
   function goToStep(
@@ -3298,6 +3301,14 @@ if (conviveToggle) {
         validateDetails();
     }
 
+    if (!error && step === 'details') {
+      const avisoPausa = mensagemPausa();
+
+      if (avisoPausa) {
+        error = avisoPausa;
+      }
+    }
+
     if (step === 'pets') {
       error =
         validatePets();
@@ -3516,7 +3527,156 @@ if (conviveToggle) {
     }
   );
 
+  function isoMais(iso, n) {
+    const d = new Date(`${iso}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function intervaloISO(inicio, fim, incluirFim) {
+    const datas = [];
+    if (!inicio) return datas;
+
+    let ultimo = fim && fim >= inicio ? fim : inicio;
+    if (!incluirFim && ultimo > inicio) ultimo = isoMais(ultimo, -1);
+
+    for (let d = inicio, i = 0; d <= ultimo && i < 400; d = isoMais(d, 1), i += 1) {
+      datas.push(d);
+    }
+
+    return datas;
+  }
+
+  /** Datas que o serviço escolhido ocuparia (mesma regra do servidor). */
+  function datasDoPeriodoEscolhido() {
+    const valor = (id) => (document.getElementById(id) || {}).value || '';
+
+    if (state.service === 'hospedagem_cao' || state.service === 'hospedagem_gato') {
+      return intervaloISO(valor('dataEntrada'), valor('dataSaida'), false);
+    }
+
+    const todas = intervaloISO(valor('dataInicio'), valor('dataFim'), true);
+
+    if (state.service === 'creche') {
+      const dias = [...document.querySelectorAll('#weekdayGrid input:checked')].map((i) => Number(i.value));
+      if (dias.length === 0) return [];
+
+      return todas.filter((d) => {
+        const js = new Date(`${d}T00:00:00Z`).getUTCDay();
+        return dias.includes(js === 0 ? 7 : js);
+      });
+    }
+
+    if (state.service === 'domiciliar') return todas;
+
+    return [];
+  }
+
+  function mensagemPausa() {
+    if (pausasLista.length === 0) return '';
+
+    const bloqueadas = [];
+    const motivos = new Set();
+
+    datasDoPeriodoEscolhido().forEach((d) => {
+      const pausa = pausasLista.find(
+        (p) => (!p.servico || p.servico === state.service) && d >= p.inicio && d <= p.fim
+      );
+
+      if (pausa) {
+        bloqueadas.push(d);
+        if (pausa.motivo) motivos.add(pausa.motivo);
+      }
+    });
+
+    if (bloqueadas.length === 0) return '';
+
+    const dm = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+    const nomes = bloqueadas.map(dm);
+    const lista =
+      nomes.length === 1
+        ? nomes[0]
+        : nomes.length <= 3
+          ? `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`
+          : `${nomes.length} datas entre ${nomes[0]} e ${nomes[nomes.length - 1]}`;
+    const motivo = motivos.size ? ` (${[...motivos].join('; ')})` : '';
+
+    return nomes.length === 1
+      ? `Não haverá agendamentos em ${lista}${motivo}. Escolha outra data para continuar.`
+      : `Não haverá agendamentos em ${lista}${motivo}. Ajuste o período para continuar.`;
+  }
+
+  function atualizarAvisoPausa() {
+    const caixa = document.getElementById('pausaAviso');
+    const emDetalhes = STEPS[state.stepIndex] === 'details';
+    const mensagem = emDetalhes ? mensagemPausa() : '';
+
+    if (caixa) {
+      const mudou = caixa.textContent !== mensagem;
+      caixa.textContent = mensagem;
+      caixa.hidden = !mensagem;
+
+      if (mensagem && mudou) {
+        caixa.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+
+    btnNext.disabled = !serverReady || Boolean(mensagem);
+  }
+
+  form.addEventListener('input', atualizarAvisoPausa);
+  form.addEventListener('change', atualizarAvisoPausa);
+
+  async function loadPausas() {
+    const box = document.getElementById('aviso-pausa');
+    if (!box) return;
+
+    try {
+      const result = await api('/api/pausas');
+      pausasLista = Array.isArray(result.pausas) ? result.pausas : [];
+      atualizarAvisoPausa();
+
+      const lista = pausasLista.slice(0, 4);
+      if (lista.length === 0) return;
+
+      const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+      const dm = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+      const nomes = {
+        hospedagem_cao: 'a hospedagem de cães',
+        hospedagem_gato: 'a hospedagem de gatos',
+        creche: 'a creche',
+        domiciliar: 'as visitas em casa',
+      };
+
+      const wrap = document.createElement('div');
+      wrap.className = 'wrap';
+
+      lista.forEach((p) => {
+        const alvo = p.servico && nomes[p.servico] ? ` para ${nomes[p.servico]}` : '';
+        const motivo = p.motivo ? ` (${p.motivo})` : '';
+        const agora = p.inicio <= hoje && hoje <= p.fim;
+        const linha = document.createElement('p');
+        const forte = document.createElement('strong');
+        forte.textContent = agora ? '⏸ Agendamentos pausados' : '⚠️ Atenção';
+        linha.appendChild(forte);
+        linha.appendChild(document.createTextNode(
+          agora
+            ? `${alvo} até ${dm(p.fim)}${motivo}. Pedidos nesse período não serão aceitos.`
+            : `: não aceitaremos agendamentos${alvo} de ${dm(p.inicio)} a ${dm(p.fim)}${motivo}.`
+        ));
+        wrap.appendChild(linha);
+      });
+
+      box.replaceChildren(wrap);
+      box.hidden = false;
+    } catch (_) {
+      // O aviso é opcional: se falhar, o site segue normal.
+    }
+  }
+
   loadConfig().then(
     updateNavigation
   );
+
+  loadPausas();
 })();

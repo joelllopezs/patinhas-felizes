@@ -97,8 +97,13 @@ function testarComprovantes() {
     mime: '',
     tamanho: 2048,
   });
+
   assert.equal(metaSemMime.mime, 'image/jpeg');
-  assert.match(comprovanteService.normalizarNomeParaBlob(meta.nomeArquivo, meta.mime), /\.pdf$/);
+
+  assert.match(
+    comprovanteService.normalizarNomeParaBlob(meta.nomeArquivo, meta.mime),
+    /\.pdf$/
+  );
 }
 
 function testarTicket() {
@@ -114,7 +119,13 @@ function testarTicket() {
     diasSemana: [],
     datasOcupacao: ['2099-01-10'],
     observacao: '',
-    pets: [{ nome: 'Luna', raca: 'SRD', cuidados: 'Nao' }],
+    pets: [
+      {
+        nome: 'Luna',
+        raca: 'SRD',
+        cuidados: 'Nao',
+      },
+    ],
     preco: {
       valorTotal: 50,
       valorSinal: 50,
@@ -127,10 +138,18 @@ function testarTicket() {
   const payload = uploadTicketService.validarTicket(criado.ticket, preparado);
 
   assert.ok(payload.nonce);
-  assert.match(uploadTicketService.prefixoDoTicket(payload), /^comprovantes\/[a-f0-9]+\/$/);
+
+  assert.match(
+    uploadTicketService.prefixoDoTicket(payload),
+    /^comprovantes\/[a-f0-9]+\/$/
+  );
 
   assert.throws(
-    () => uploadTicketService.validarTicket(criado.ticket, { ...preparado, telefone: '14888888888' }),
+    () =>
+      uploadTicketService.validarTicket(criado.ticket, {
+        ...preparado,
+        telefone: '14888888888',
+      }),
     (error) => error.code === 'UPLOAD_DADOS_DIVERGENTES'
   );
 }
@@ -145,7 +164,11 @@ async function testarServidorBasico() {
 
   try {
     const endereco = server.address();
-    const response = await fetch(`http://127.0.0.1:${endereco.port}/api/configuracoes`);
+
+    const response = await fetch(
+      `http://127.0.0.1:${endereco.port}/api/configuracoes`
+    );
+
     const data = await response.json();
 
     assert.equal(response.status, 200);
@@ -164,7 +187,10 @@ async function run() {
   testarComprovantes();
   testarTicket();
   await testarServidorBasico();
-  console.log('Smoke test OK: estrutura Vercel/Neon/Blob, precos, tickets e API basica.');
+
+  console.log(
+    'Smoke test OK: estrutura Vercel/Neon/Blob, precos, tickets e API basica.'
+  );
 }
 
 run().catch((error) => {

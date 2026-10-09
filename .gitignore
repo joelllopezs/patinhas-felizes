@@ -12,3 +12,11 @@ agendamento.db
 agendamento.db-shm
 agendamento.db-wal
 uploads/
+
+.vercel
+.env*
+
+.env
+.env.local
+.env.vercel
+.vercel

@@ -2,37 +2,37 @@
   "name": "patinhas-felizes-web",
   "version": "4.0.0",
   "private": true,
-  "description": "Agendamento web para Vercel com Neon PostgreSQL e Vercel Blob Private",
+  "description": "Patinhas Felizes - agendamento web com Vercel, Neon PostgreSQL, Vercel Blob, Pix, WhatsApp e Google Agenda",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "build": "esbuild src/script.js --bundle --platform=browser --format=iife --target=es2022 --outfile=public/script.js",
-    "vercel-build": "npm run build",
-    "start": "npm run build && node --no-warnings server.js",
-    "dev": "npm run build && node --no-warnings --watch server.js",
-    "db:setup": "node --no-warnings scripts/setup-db.js",
-    "check": "node --check server.js && node --check src/script.js && node --check config/agendamento.js && node --check database/connection.js && node --check models/reservaModel.js && node --check models/tentativaPinModel.js && node --check services/agendamentoWebService.js && node --check services/comprovanteService.js && node --check services/disponibilidadeService.js && node --check services/precoService.js && node --check services/reservaService.js && node --check services/uploadTicketService.js && node --check scripts/setup-db.js && node --check utils/dateUtils.js && node --check utils/loadEnv.js",
+    "start": "node --no-warnings server.js",
+    "dev": "node --no-warnings --watch server.js",
+    "google:auth": "node --no-warnings scripts/googleOAuth.js",
+    "google:test": "node --no-warnings scripts/testGoogleCalendar.js",
+    "check": "node --check server.js && node --check src/script.js && node --check config/agendamento.js && node --check database/connection.js && node --check models/reservaModel.js && node --check services/agendamentoWebService.js && node --check services/comprovanteService.js && node --check services/disponibilidadeService.js && node --check services/googleCalendarService.js && node --check services/precoService.js && node --check services/reservaService.js && node --check services/uploadTicketService.js && node --check scripts/googleOAuth.js && node --check scripts/testGoogleCalendar.js && node --check utils/dateUtils.js && node --check utils/loadEnv.js",
     "test": "node --no-warnings tests/smoke.js"
+
   },
   "engines": {
     "node": ">=22 <23"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",
+    "esbuild": "^0.25.0",
+    "googleapis": "^173.0.0",
     "pg": "^8.16.3"
-  },
-  "devDependencies": {
-    "esbuild": "^0.25.0"
   },
   "keywords": [
     "agendamento",
     "pet",
-    "postgresql",
-    "neon",
     "vercel",
-    "blob",
+    "neon",
+    "postgresql",
+    "vercel-blob",
     "whatsapp",
-    "pix"
+    "pix",
+    "google-calendar"
   ],
   "license": "ISC"
 }

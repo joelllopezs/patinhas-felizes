@@ -5,19 +5,19 @@
    amarelo-sol, e um creme quente de fundo.
    ========================================================================== */
 :root {
-  --bg: #FBF6EC;
+  --bg: #F1EAF9;
   --bg-card: #FFFFFF;
-  --bg-alt: #F2E9D8;
-  --forest: #2C4A3B;
-  --forest-deep: #1E3329;
-  --forest-light: #4A6E5A;
-  --paw: #E2703A;
-  --paw-deep: #C85A28;
+  --bg-alt: #E6DBF3;
+  --forest: #4B257A;
+  --forest-deep: #341A55;
+  --forest-light: #6B43A5;
+  --paw: #825EBC;
+  --paw-deep: #6B43A5;
   --sun: #F0B429;
-  --blush: #F3C6C0;
-  --ink: #22301F;
-  --ink-soft: #5B6B57;
-  --line: rgba(44, 74, 59, 0.14);
+  --blush: #E4D8F2;
+  --ink: #1A1A1A;
+  --ink-soft: #5E5470;
+  --line: rgba(75, 37, 122, 0.14);
   --whatsapp: #25D366;
   --whatsapp-deep: #1DA851;
 
@@ -28,8 +28,8 @@
   --radius-md: 18px;
   --radius-sm: 12px;
 
-  --shadow-soft: 0 12px 30px -12px rgba(30, 51, 41, 0.22);
-  --shadow-lift: 0 20px 45px -16px rgba(30, 51, 41, 0.32);
+  --shadow-soft: 0 12px 30px -12px rgba(52, 26, 85, 0.22);
+  --shadow-lift: 0 20px 45px -16px rgba(52, 26, 85, 0.32);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -133,7 +133,7 @@ a { color: inherit; }
   color: var(--forest-deep);
   border: 2px solid var(--line);
 }
-.btn-ghost:hover { border-color: var(--forest); background: rgba(44,74,59,0.05); }
+.btn-ghost:hover { border-color: var(--forest); background: rgba(75, 37, 122,0.05); }
 
 .btn-small { padding: 10px 20px; font-size: 0.9rem; }
 
@@ -167,7 +167,7 @@ a { color: inherit; }
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(251, 246, 236, 0.86);
+  background: rgba(241, 234, 249, 0.86);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
@@ -238,7 +238,7 @@ a { color: inherit; }
 .hero-emoji {
   position: relative;
   font-size: 6.4rem;
-  filter: drop-shadow(0 14px 18px rgba(30,51,41,0.25));
+  filter: drop-shadow(0 14px 18px rgba(52, 26, 85,0.25));
   animation: floatY 4.5s ease-in-out infinite;
 }
 .hero-emoji-dog { margin-right: 46px; }
@@ -431,7 +431,7 @@ a { color: inherit; }
 .choice-card input { position: absolute; opacity: 0; pointer-events: none; }
 .choice-card:has(input:checked) {
   border-color: var(--paw);
-  background: rgba(226, 112, 58, 0.08);
+  background: rgba(130, 94, 188, 0.08);
 }
 .choice-emoji { font-size: 1.5rem; }
 
@@ -494,19 +494,19 @@ a { color: inherit; }
   grid-template-columns: repeat(4, 1fr);
   gap: 26px;
 }
-.info-item { text-align: center; color: #EAF1EA; }
+.info-item { text-align: center; color: #F1EAF9; }
 .info-emoji { font-size: 1.8rem; display: block; margin-bottom: 10px; }
-.info-item p { color: rgba(234,241,234,0.82); font-size: 0.92rem; margin: 0; }
+.info-item p { color: rgba(241, 234, 249,0.82); font-size: 0.92rem; margin: 0; }
 
 /* ==========================================================================
    FOOTER
    ========================================================================== */
 .site-footer { background: var(--forest-deep); padding: 30px 0 40px; border-top: 1px solid rgba(255,255,255,0.08); }
 .footer-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
-.site-footer .brand-name, .site-footer .brand-mark { color: #EAF1EA; }
-.footer-tag { color: rgba(234,241,234,0.6); font-size: 0.85rem; margin: 2px 0 0; }
+.site-footer .brand-name, .site-footer .brand-mark { color: #F1EAF9; }
+.footer-tag { color: rgba(241, 234, 249,0.6); font-size: 0.85rem; margin: 2px 0 0; }
 .footer-links { display: flex; gap: 22px; flex-wrap: wrap; }
-.footer-links a { color: rgba(234,241,234,0.85); text-decoration: none; font-weight: 600; font-size: 0.92rem; }
+.footer-links a { color: rgba(241, 234, 249,0.85); text-decoration: none; font-weight: 600; font-size: 0.92rem; }
 .footer-links a:hover { color: var(--sun); }
 
 /* ==========================================================================
@@ -601,8 +601,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
 }
 
 .availability-box.unavailable {
-  background: rgba(226, 112, 58, 0.1);
-  border: 1px solid rgba(200, 90, 40, 0.25);
+  background: rgba(130, 94, 188, 0.1);
+  border: 1px solid rgba(107, 67, 165, 0.25);
   color: var(--paw-deep);
 }
 
@@ -649,8 +649,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
 }
 
 .human-care-notice {
-  border: 2px solid rgba(226, 112, 58, 0.32);
-  background: rgba(226, 112, 58, 0.08);
+  border: 2px solid rgba(130, 94, 188, 0.32);
+  background: rgba(130, 94, 188, 0.08);
   border-radius: var(--radius-md);
   padding: 20px;
   margin-top: 18px;
@@ -715,7 +715,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
 .notice {
   padding: 14px 16px;
   border-radius: var(--radius-sm);
-  background: rgba(44, 74, 59, 0.07);
+  background: rgba(75, 37, 122, 0.07);
   color: var(--forest-deep);
   font-size: 0.88rem;
   font-weight: 700;
@@ -751,7 +751,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
 .payment-instructions {
   border-left: 4px solid var(--paw);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  background: rgba(226, 112, 58, 0.08);
+  background: rgba(130, 94, 188, 0.08);
   padding: 16px;
   margin-bottom: 18px;
 }
@@ -786,7 +786,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
   align-items: center;
   gap: 8px;
   background: var(--bg-alt);
-  border: 2px dashed rgba(44, 74, 59, 0.2);
+  border: 2px dashed rgba(75, 37, 122, 0.2);
   border-radius: var(--radius-md);
   padding: 22px;
   margin: 22px 0;
@@ -921,18 +921,18 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
 .service-card.is-selected,
 .choice-card.is-selected {
   border-color: var(--paw);
-  background: rgba(226, 112, 58, 0.08);
+  background: rgba(130, 94, 188, 0.08);
 }
 
 /* Container geral da cena */
 .selected-service-animation {
   position: relative;
   margin: -4px 0 26px;
-  border: 1px solid rgba(44, 74, 59, 0.13);
+  border: 1px solid rgba(75, 37, 122, 0.13);
   border-radius: 24px;
   background: #fff;
   overflow: hidden;
-  box-shadow: 0 18px 38px -28px rgba(30, 51, 41, 0.42);
+  box-shadow: 0 18px 38px -28px rgba(52, 26, 85, 0.42);
   animation: storyReveal 0.55s cubic-bezier(.2,.8,.2,1) both;
 }
 
@@ -958,7 +958,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
   padding: 12px 18px 15px;
   text-align: center;
   background: rgba(255, 255, 255, 0.94);
-  border-top: 1px solid rgba(44, 74, 59, 0.1);
+  border-top: 1px solid rgba(75, 37, 122, 0.1);
 }
 
 .story-copy strong {
@@ -974,7 +974,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
 }
 
 .story-sign-text {
-  fill: #2C4A3B;
+  fill: #4B257A;
   font-family: var(--font-display);
   font-size: 18px;
   font-weight: 800;
@@ -1568,3 +1568,31 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
     max-height: 170px;
   }
 }
+
+/* Aviso de agendamentos pausados (painel do proprietario) */
+.aviso-pausa {
+  background: #FFF1CC;
+  color: #4A3500;
+  border-bottom: 2px solid var(--sun);
+  padding: 12px 0;
+  font-size: 0.97rem;
+  line-height: 1.4;
+}
+.aviso-pausa[hidden] { display: none; }
+.aviso-pausa p { margin: 0; }
+.aviso-pausa p + p { margin-top: 6px; }
+.aviso-pausa strong { font-weight: 800; }
+
+/* Aviso de data pausada dentro do formulario */
+.pausa-aviso {
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: #FFF1CC;
+  border: 2px solid var(--sun);
+  color: #4A3500;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.pausa-aviso[hidden] { display: none; }
+.pausa-aviso::before { content: '⏸ '; }
