@@ -23,7 +23,7 @@ const ST = {
   cancelado: ['Cancelado', 't-r'],
   expirado: ['Expirado', 't-b'],
 };
-const NAV = [['agenda', '📅', 'Reservas'], ['clientes', '🐾', 'Clientes'], ['estadias', '🏠', 'Estadias'], ['relatorios', '📊', 'Relatórios'], ['valores', '💲', 'Valores']];
+const NAV = [['agenda', '📅', 'Reservas'], ['clientes', '🐾', 'Clientes'], ['estadias', '🏠', 'Estadias'], ['relatorios', '📊', 'Relatórios'], ['precos', '💲', 'Preços']];
 const PAGS = [['pix', 'Pix'], ['dinheiro', 'Dinheiro'], ['cartao', 'Cartão']];
 const PAGN = Object.fromEntries(PAGS);
 
@@ -70,7 +70,7 @@ async function load() {
 }
 function render() {
   $('nav').innerHTML = NAV.map(([k, e, t]) => `<button class="${tab === k ? 'on' : ''}" data-a="go" data-v="${k}">${e} ${t}</button>`).join('');
-  $('v').innerHTML = { agenda: vAgenda, clientes: vClientes, estadias: vEstadias, relatorios: vRel, valores: vValores }[tab]();
+  $('v').innerHTML = { agenda: vAgenda, clientes: vClientes, estadias: vEstadias, relatorios: vRel, precos: vPrecos }[tab]();
 }
 
 function vAgenda() {
@@ -140,48 +140,6 @@ function vRelBase() {
 }
 
 
-const num = (v) => String(v ?? '').replace('.', ',');
-const pin = (id, v, extra = '') => `<input id="${id}" inputmode="decimal" type="number" min="0" step="0.01" value="${v}" ${extra}>`;
-function vValores() {
-  const p = D.precos, pd = D.precosPadrao;
-  const dif = JSON.stringify(p) !== JSON.stringify(pd);
-  const quando = D.precosAtualizadoEm ? new Date(D.precosAtualizadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '';
-  const hint = (v) => `<span class="sm">Padrão: ${R(v)}</span>`;
-  const aviso = `<div class="banner"><div style="font-size:30px">🛡️</div><div class="grow"><b>Só vale para novos agendamentos</b><span class="sm" style="color:inherit">Reservas já lançadas (pagas ou pendentes) mantêm o valor, o sinal e o saldo que já foram gravados. Alterar a tabela não mexe no fluxo financeiro existente.</span></div></div>`;
-  const campos = (tit, html) => `<div class="card"><h3>${tit}</h3><div class="fg" style="margin-top:10px">${html}</div></div>`;
-  return head('Valores', 'Tabela de preços usada no site, no cálculo de novas reservas e no novo agendamento' + (quando ? ' · última alteração ' + quando : dif ? '' : ' · usando valores padrão')) + aviso +
-    campos('🏠 Hospedagem (cão e gato)', `<label>Diária por pet (R$)${pin('pv-h', p.hospedagem)}${hint(pd.hospedagem)}</label>`) +
-    campos('🎾 Creche · plano mensal', [1, 2, 3, 4, 5].map((n) => `<label>${n}x por semana (R$)${pin('pv-c' + n, p.creche[n])}${hint(pd.creche[n])}</label>`).join('')) +
-    campos('🚪 Visita em casa · por dia', [1, 2].map((n) => `<label>${n} visita${n > 1 ? 's' : ''} por dia (R$)${pin('pv-d' + n, p.domiciliar[n])}${hint(pd.domiciliar[n])}</label>`).join('')) +
-    campos('💳 Sinal de reserva', `<label>Sinal para gerar o protocolo (R$)${pin('pv-s', p.sinal)}${hint(pd.sinal)}</label>`) +
-    `<div class="card noprint" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="btn g" data-a="precoPadrao">↺ Restaurar valores padrão</button><button class="btn" data-a="salvarPrecos">Salvar valores</button></div>`;
-}
-function lerPrecos() {
-  const v = (id) => $(id).value.replace(',', '.');
-  return { hospedagem: v('pv-h'), creche: Object.fromEntries([1, 2, 3, 4, 5].map((n) => [n, v('pv-c' + n)])), domiciliar: Object.fromEntries([1, 2].map((n) => [n, v('pv-d' + n)])), sinal: v('pv-s') };
-}
-
-// Sugestão do total no "Novo agendamento", pela tabela vigente (o campo continua editável).
-let totalManual = false;
-function sugerirTotal() {
-  if (!$('ftot')) return;
-  const sv = $('fs').value, p = D.precos, n = Math.max(0, diff($('fi').value || sel, $('fo').value || sel));
-  const qp = Math.max(1, $('fp').value.split(',').map((x) => x.trim()).filter(Boolean).length);
-  $('fplw').hidden = !(sv === 'creche' || sv === 'domiciliar');
-  const pl = $('fpl');
-  const cur = pl.value;
-  const lista = sv === 'domiciliar' ? [['1', '1 visita por dia'], ['2', '2 visitas por dia']] : [['1', '1x por semana'], ['2', '2x por semana'], ['3', '3x por semana'], ['4', '4x por semana'], ['5', '5x por semana']];
-  if (pl.dataset.sv !== sv) { pl.innerHTML = opt(lista, sv === 'domiciliar' ? '1' : '5'); pl.dataset.sv = sv; }
-  else pl.value = cur;
-  const k = Number(pl.value);
-  let t = 0, txt = '';
-  if (sv === 'creche') { t = p.creche[k]; txt = `Plano ${k}x por semana`; }
-  else if (sv === 'domiciliar') { const d = n + 1; t = p.domiciliar[k] * d; txt = `${d} dia(s) × ${R(p.domiciliar[k])}`; }
-  else { t = n * qp * p.hospedagem; txt = `${n} diária(s) × ${qp} pet(s) × ${R(p.hospedagem)}`; }
-  $('fhint').textContent = `Sugestão pela tabela de valores: ${txt} = ${R(t)}${totalManual ? ' (valor digitado manualmente mantido)' : ''}`;
-  if (!totalManual) $('ftot').value = t;
-}
-
 const ex = { de: '', ate: '', g: 'all', st: 'ativas' };
 const brf = (v) => v.slice(8) + '/' + v.slice(5, 7) + '/' + v.slice(0, 4);
 function exFiltro() {
@@ -210,15 +168,46 @@ function baixarCSV() {
   toast('Planilha gerada ✅');
 }
 
+
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const numIn = (id, v, lab) => `<label>${lab}<input type="number" min="0.01" step="0.01" id="${id}" value="${v ?? ''}"></label>`;
+function camposPreco(p, v) {
+  return `<h4 class="sub-h">Hospedagem (cães e gatos)</h4><div class="fg">${numIn(p + 'h', v.hospedagem, 'Diária por pet (R$)')}</div>` +
+    `<h4 class="sub-h">Creche — plano mensal (R$)</h4><div class="fg">${[1, 2, 3, 4, 5].map((k) => numIn(p + 'c' + k, v.creche[k], k + 'x por semana')).join('')}</div>` +
+    `<h4 class="sub-h">Visita em casa — por dia (R$)</h4><div class="fg">${[1, 2].map((k) => numIn(p + 'd' + k, v.domiciliar[k], k + (k === 1 ? ' visita' : ' visitas'))).join('')}</div>`;
+}
+const lerPreco = (p) => ({ hospedagem: $(p + 'h').value, creche: Object.fromEntries([1, 2, 3, 4, 5].map((k) => [k, $(p + 'c' + k).value])), domiciliar: Object.fromEntries([1, 2].map((k) => [k, $(p + 'd' + k).value])) });
+function vPrecos() {
+  const B = D.precos.base, H0 = D.hoje;
+  const st = (p) => (p.fim < H0 ? ['Encerrado', 't-b'] : p.inicio <= H0 ? ['Em vigor', 't-ok'] : ['Programado', 't-w']);
+  const per = D.precos.periodos.slice().sort((a, b) => (a.inicio < b.inicio ? 1 : -1));
+  const rows = per.map((p) => { const s = st(p); return `<div class="row"><div class="av">🎄</div><div class="grow"><b>${esc(p.nome)}</b> <span class="tag ${s[1]}">${s[0]}</span><div class="sm">${brf(p.inicio)} a ${brf(p.fim)} · Hospedagem ${R(p.hospedagem)}/diária · Creche 1x ${R(p.creche[1])} · Visita ${R(p.domiciliar[1])}/dia</div></div><button class="btn g s" data-a="editPeriodo" data-v="${p.id}">Editar</button><button class="btn g s" data-a="rmPeriodo" data-v="${p.id}">Remover</button></div>`; }).join('');
+  return head('Preços', 'Valores do site e períodos especiais (festas, alta temporada)') +
+    `<div class="banner"><div style="font-size:26px">ℹ️</div><div class="grow"><b>Só vale para novos agendamentos</b><span class="sm" style="color:inherit">Reservas já feitas mantêm o valor combinado. Mudou aqui, o site passa a cobrar o novo valor para quem agendar a partir de agora.</span></div></div>` +
+    `<div class="card"><h3>Valores padrão</h3><div class="sm">Usados em todas as datas que não estiverem em um período especial.</div>${camposPreco('pb-', B)}<h4 class="sub-h">Sinal da reserva (R$)</h4><div class="fg">${numIn('pb-s', B.sinal, 'Valor do sinal')}</div><div style="margin-top:14px"><button class="btn" data-a="salvarBase">Salvar valores padrão</button></div></div>` +
+    `<div class="card"><div class="top"><div><h3>Períodos especiais</h3><div class="sm">Valores fixos para meses ou datas específicas. Cada diária (ou dia de visita) usa o valor da própria data.</div></div><button class="btn" data-a="novoPeriodo">+ Novo período</button></div>${rows || '<div class="sm" style="padding:14px 0">Nenhum período cadastrado. Ex.: Natal e Réveillon, Carnaval, Julho.</div>'}</div>`;
+}
+function formPeriodo(id) {
+  const p = id ? D.precos.periodos.find((x) => x.id === id) : null, v = p || D.precos.base;
+  const y = +D.hoje.slice(0, 4), m0 = +D.hoje.slice(5, 7) - 1;
+  const meses = [...Array(15)].map((_, k) => { const t = new Date(y, m0 + k, 1); const val = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0'); return `<option value="${val}">${MESES[t.getMonth()]}/${t.getFullYear()}</option>`; }).join('');
+  openM(`<h3>${p ? 'Editar' : 'Novo'} período especial</h3><input type="hidden" id="ppid" value="${p ? p.id : ''}"><label style="margin-top:12px">Nome<input id="ppn" maxlength="60" placeholder="Ex.: Natal e Réveillon" value="${esc(p ? p.nome : '')}"></label><label style="margin-top:10px">Atalho: aplicar a um mês inteiro<select id="pp-mes"><option value="">— escolher mês —</option>${meses}</select></label><div class="fg" style="margin-top:10px"><label>De<input type="date" id="ppi" value="${p ? p.inicio : ''}"></label><label>Até<input type="date" id="ppf" value="${p ? p.fim : ''}"></label></div><div class="sm" style="margin-top:6px">Para mais de um mês (ex.: 20/12 a 05/01), escolha as datas direto.</div>${camposPreco('pp-', v)}${foot('salvarPeriodo')}`);
+}
+function preencherMes(v) {
+  if (!v) return;
+  const [y, m] = v.split('-').map(Number);
+  $('ppi').value = v + '-01';
+  $('ppf').value = ISO(new Date(y, m, 0));
+  if (!$('ppn').value.trim()) $('ppn').value = MESES[m - 1];
+}
+
 const openM = (h) => { $('mc').innerHTML = h; $('md').classList.add('on'); };
 const closeM = () => $('md').classList.remove('on');
 const opt = (a, v) => a.map(([k, t]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${t}</option>`).join('');
 const foot = (a) => `<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end"><button class="btn g" data-a="fechar">Fechar</button><button class="btn" data-a="${a}">Salvar</button></div>`;
 
 function formNovo() {
-  openM(`<h3>Novo agendamento</h3><div class="fg" style="margin-top:12px"><label>Serviço<select id="fs">${opt(Object.entries(SV).map(([k, v]) => [k, v.n]), 'hospedagem_cao')}</select></label><label>Tutor<input id="ft"></label><label>Telefone (com DDD)<input id="ftel" inputmode="tel"></label><label>Pets (separe por vírgula)<input id="fp"></label><label>Entrada<input type="date" id="fi" value="${sel}"></label><label>Saída<input type="date" id="fo" value="${add(sel, 2)}"></label><label>Hora entrada<input type="time" id="fhi" value="10:00"></label><label>Hora saída<input type="time" id="fho" value="17:00"></label><label id="fplw" hidden>Plano / visitas<select id="fpl"></select></label><label>Total (R$)<input type="number" min="0" step="0.01" id="ftot"></label><label>Pagamento<select id="fpay">${opt(PAGS, 'pix')}</select></label></div><label style="margin-top:10px"><span><input type="checkbox" id="fpd" style="width:auto"> Já está pago</span></label><label style="margin-top:10px">Observações<input id="fob"></label><div class="sm" style="margin-top:8px">Creche: usa segunda a sexta dentro do período. Visita em casa: todos os dias do período. O sistema confere as vagas antes de salvar.</div><div class="sm" id="fhint" style="margin-top:6px"></div>${foot('salvarNovo')}`);
-  totalManual = false;
-  sugerirTotal();
+  openM(`<h3>Novo agendamento</h3><div class="fg" style="margin-top:12px"><label>Serviço<select id="fs">${opt(Object.entries(SV).map(([k, v]) => [k, v.n]), 'hospedagem_cao')}</select></label><label>Tutor<input id="ft"></label><label>Telefone (com DDD)<input id="ftel" inputmode="tel"></label><label>Pets (separe por vírgula)<input id="fp"></label><label>Entrada<input type="date" id="fi" value="${sel}"></label><label>Saída<input type="date" id="fo" value="${add(sel, 2)}"></label><label>Hora entrada<input type="time" id="fhi" value="10:00"></label><label>Hora saída<input type="time" id="fho" value="17:00"></label><label>Total (R$)<input type="number" min="0" step="0.01" id="ftot"></label><label>Pagamento<select id="fpay">${opt(PAGS, 'pix')}</select></label></div><label style="margin-top:10px"><span><input type="checkbox" id="fpd" style="width:auto"> Já está pago</span></label><label style="margin-top:10px">Observações<input id="fob"></label><div class="sm" style="margin-top:8px">Creche: usa segunda a sexta dentro do período. Visita em casa: todos os dias do período. O sistema confere as vagas antes de salvar.</div>${foot('salvarNovo')}`);
 }
 function formEditar(id) {
   const r = D.reservas.find((x) => x.id === id);
@@ -234,6 +223,11 @@ const H = {
   flt: (v) => { flt = v; render(); },
   pfl: (v) => { pfl = v; render(); },
   reload: () => load(),
+  salvarBase: () => run(() => api('precos/base', { ...lerPreco('pb-'), sinal: $('pb-s').value }), 'Valores padrão salvos ✅'),
+  novoPeriodo: () => formPeriodo(),
+  editPeriodo: (v) => formPeriodo(Number(v)),
+  rmPeriodo: (v) => { if (confirm('Remover este período? Voltam a valer os valores padrão nessas datas (reservas já feitas não mudam).')) run(() => api('precos/periodos/' + v + '/remover', {}), 'Período removido'); },
+  salvarPeriodo: () => run(async () => { await api('precos/periodos', { id: $('ppid').value || undefined, nome: $('ppn').value, inicio: $('ppi').value, fim: $('ppf').value, ...lerPreco('pp-') }); closeM(); }, 'Período salvo ✅'),
   instalar: async () => { if (!promptInstalar) return; promptInstalar.prompt(); try { await promptInstalar.userChoice; } catch (_) {} promptInstalar = null; mostrarInstalar(); },
   csv: baixarCSV,
   imprimir: () => window.print(),
@@ -252,11 +246,6 @@ const H = {
     run(async () => { await api('reservas', corpo); closeM(); }, 'Agendamento criado ✅');
   },
   salvarEdit: () => run(async () => { await api(`reservas/${$('eid').value}/editar`, { total: Number($('etot').value), pagamento: $('epay').value, pago: $('epd').checked, obs: $('eob').value }); closeM(); }, 'Salvo ✅'),
-  salvarPrecos: () => {
-    if (!confirm('Salvar os novos valores? Valem só para novos agendamentos; reservas já lançadas não mudam.')) return;
-    run(() => api('precos', lerPrecos()), 'Valores atualizados ✅');
-  },
-  precoPadrao: () => { if (confirm('Voltar para os valores padrão? Reservas já lançadas não mudam.')) run(() => api('precos/restaurar', {}), 'Valores padrão restaurados'); },
   salvarPausa: () => run(async () => { await api('pausas', { servico: $('pm').value, inicio: $('pa').value, fim: $('pb').value, motivo: $('pw').value }); closeM(); }, '⏸ Agendamentos pausados'),
 };
 
@@ -279,15 +268,50 @@ window.addEventListener('appinstalled', () => { promptInstalar = null; $('inst')
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/controle-sw.js', { scope: '/controle/' }).catch(() => {});
 mostrarInstalar();
 
+/* Datas dd/mm/aaaa e horas 24h (HH:MM) independente do navegador/Windows.
+   O campo visível é texto com máscara; o original (mesmo id/data-ex) vira "hidden"
+   e guarda o valor ISO (aaaa-mm-dd / HH:MM), então o resto do código lê .value igual. */
+function aplicarPadraoBR(raiz) {
+  raiz.querySelectorAll('input[type="date"], input[type="time"]').forEach((orig) => {
+    const ehData = orig.type === 'date';
+    const ini = orig.value || '';
+    const vis = document.createElement('input');
+    vis.type = 'text'; vis.inputMode = 'numeric'; vis.autocomplete = 'off';
+    vis.maxLength = ehData ? 10 : 5;
+    vis.placeholder = ehData ? 'dd/mm/aaaa' : 'HH:MM';
+    if (orig.id) vis.id = orig.id + '_br';
+    if (ehData) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ini); vis.value = m ? `${m[3]}/${m[2]}/${m[1]}` : ''; }
+    else vis.value = /^\d{2}:\d{2}/.test(ini) ? ini.slice(0, 5) : '';
+    orig.type = 'hidden';
+    orig.parentNode.insertBefore(vis, orig);
+    const converter = (t) => {
+      if (ehData) {
+        const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t); if (!m) return '';
+        const d = +m[1], mes = +m[2], a = +m[3], x = new Date(Date.UTC(a, mes - 1, d));
+        return a >= 1000 && x.getUTCFullYear() === a && x.getUTCMonth() === mes - 1 && x.getUTCDate() === d ? `${m[3]}-${m[2]}-${m[1]}` : '';
+      }
+      const m = /^(\d{2}):(\d{2})$/.exec(t); return m && +m[1] <= 23 && +m[2] <= 59 ? t : '';
+    };
+    vis.addEventListener('input', () => {
+      let n = vis.value.replace(/\D/g, '').slice(0, ehData ? 8 : 4);
+      if (ehData) n = n.length > 4 ? `${n.slice(0, 2)}/${n.slice(2, 4)}/${n.slice(4)}` : n.length > 2 ? `${n.slice(0, 2)}/${n.slice(2)}` : n;
+      else if (n.length > 2) n = `${n.slice(0, 2)}:${n.slice(2)}`;
+      vis.value = n;
+      const novo = converter(n), mudou = orig.value !== novo;
+      orig.value = novo;
+      if (mudou) { orig.dispatchEvent(new Event('input', { bubbles: true })); orig.dispatchEvent(new Event('change', { bubbles: true })); }
+    });
+  });
+}
+['v', 'mc'].forEach((id) => {
+  const el = $(id);
+  if (el) new MutationObserver(() => { if (el.querySelector('input[type="date"], input[type="time"]')) aplicarPadraoBR(el); }).observe(el, { childList: true });
+});
+
 document.addEventListener('click', (e) => {
   if (e.target.id === 'md') return closeM();
   const b = e.target.closest('[data-a]');
   if (b && H[b.dataset.a]) H[b.dataset.a](b.dataset.v);
 });
-document.addEventListener('input', (e) => {
-  const id = e.target.id;
-  if (id === 'ftot') totalManual = e.target.value !== '';
-  else if (['fs', 'fp', 'fi', 'fo', 'fpl'].includes(id)) { if (id === 'fs') totalManual = false; sugerirTotal(); }
-});
-document.addEventListener('change', (e) => { const k = e.target.dataset && e.target.dataset.ex; if (k) { ex[k] = e.target.value; render(); } });
+document.addEventListener('change', (e) => { if (e.target.id === 'pp-mes') preencherMes(e.target.value); const k = e.target.dataset && e.target.dataset.ex; if (k) { ex[k] = e.target.value; render(); } });
 load();

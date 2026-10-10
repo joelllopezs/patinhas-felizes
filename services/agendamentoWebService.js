@@ -28,15 +28,12 @@ const disponibilidadeService =
     './disponibilidadeService'
   );
 
-const controleModel =
-  require(
-    '../models/controleModel'
-  );
-
 const precoService =
   require(
     './precoService'
   );
+
+const precoModel = require('../models/precoModel');
 
 class DomainError extends Error {
   constructor(
@@ -1002,15 +999,13 @@ async function prepararSolicitacao(
     );
   }
 
-  // Tabela vigente no painel de controle: vale só para esta nova reserva.
-  const precosVigentes =
-    await controleModel.obterPrecos();
+  const tabelaPrecos = await precoModel.obterTabela();
 
   const preco =
     precoService.calcularPreco({
-      precos:
-        precosVigentes,
-
+      entradaISO:
+        preparado.entradaISO,
+      tabela: tabelaPrecos,
       servico:
         preparado.servico,
 

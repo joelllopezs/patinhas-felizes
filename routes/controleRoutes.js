@@ -13,8 +13,8 @@ const path = require('path');
 const config = require('../config/agendamento');
 const reservaModel = require('../models/reservaModel');
 const controleModel = require('../models/controleModel');
+const precoModel = require('../models/precoModel');
 const reservaService = require('../services/reservaService');
-const precoService = require('../services/precoService');
 const disponibilidadeService = require('../services/disponibilidadeService');
 const googleCalendarService = require('../services/googleCalendarService');
 const { validarDataISO, hojeISOEmSaoPaulo } = require('../utils/dateUtils');
@@ -69,6 +69,24 @@ function idDaRota(txt, h) {
   const id = Number(txt);
   if (!Number.isSafeInteger(id) || id < 1) throw erro(h, 400, 'Identificador inválido.');
   return id;
+}
+
+function valorMoeda(v, rotulo, h) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0 || n > 20000) {
+    throw erro(h, 400, `${rotulo}: informe um valor entre 0,01 e 20.000.`);
+  }
+  return Math.round(n * 100) / 100;
+}
+
+function lerValores(b, h) {
+  const c = b.creche || {};
+  const d = b.domiciliar || {};
+  return {
+    hospedagem: valorMoeda(b.hospedagem, 'Hospedagem (diária por pet)', h),
+    creche: Object.fromEntries([1, 2, 3, 4, 5].map((k) => [k, valorMoeda(c[k], `Creche ${k}x por semana`, h)])),
+    domiciliar: Object.fromEntries([1, 2].map((k) => [k, valorMoeda(d[k], `Visita em casa (${k} por dia)`, h)])),
+  };
 }
 
 async function criarReservaManual(b, h) {
@@ -195,21 +213,18 @@ async function tratar(req, res, pathname, h) {
 
   if (req.method === 'GET' && rota === 'dados') {
     await reservaModel.expirarPendentes();
-    const [reservas, pausas, limite, vigentes] = await Promise.all([
+    const [reservas, pausas, limite, precos] = await Promise.all([
       controleModel.listarReservasControle(),
       controleModel.listarPausas(),
       controleModel.obterLimiteVagas(),
-      controleModel.obterPrecosVigentes(),
+      precoModel.obterTabela(),
     ]);
     ok({
-      precos: precoService.precosParaApi(vigentes.precos),
-      precosPadrao: precoService.precosParaApi(config.PRECOS),
-      precosAtualizadoEm: vigentes.atualizadoEm,
-      precosPersonalizados: vigentes.personalizado,
       hoje: hojeISOEmSaoPaulo(),
       limiteVagas: limite,
       limiteGatos: config.LIMITE_CLIENTES_GATOS_POR_DIA,
       pausas,
+      precos,
       reservas: reservas.map(serializar),
     });
     return true;
@@ -271,22 +286,34 @@ async function tratar(req, res, pathname, h) {
     return true;
   }
 
-  if (rota === 'precos') {
-    let novos;
-    try {
-      novos = precoService.normalizarPrecos(b);
-    } catch (e) {
-      throw erro(h, 400, e.message, 'VALORES_INVALIDOS');
-    }
-    // Só grava a tabela vigente: reservas já lançadas guardam o próprio valor_total/sinal/saldo.
-    await controleModel.definirPrecos(novos);
-    ok({ precos: precoService.precosParaApi(novos) });
+  if (rota === 'precos/base') {
+    const valores = lerValores(b, h);
+    await precoModel.salvarBase({ ...valores, sinal: valorMoeda(b.sinal, 'Sinal da reserva', h) });
+    ok();
     return true;
   }
 
-  if (rota === 'precos/restaurar') {
-    await controleModel.restaurarPrecosPadrao();
-    ok({ precos: precoService.precosParaApi(config.PRECOS) });
+  if (rota === 'precos/periodos') {
+    const id = b.id ? idDaRota(b.id, h) : null;
+    const nome = String(b.nome || '').trim().slice(0, 60);
+    if (nome.length < 2) throw erro(h, 400, 'Dê um nome ao período (ex.: Natal e Réveillon).');
+    if (!dataOk(b.inicio) || !dataOk(b.fim) || b.fim < b.inicio) throw erro(h, 400, 'Confira as datas do período.');
+    if ((new Date(`${b.fim}T00:00:00Z`) - new Date(`${b.inicio}T00:00:00Z`)) / 864e5 > 400) {
+      throw erro(h, 400, 'O período pode ter no máximo 400 dias.');
+    }
+    const valores = lerValores(b, h);
+    const choque = await precoModel.periodoSobreposto(b.inicio, b.fim, id);
+    if (choque) throw erro(h, 409, `Já existe o período "${choque.nome}" nessas datas. Ajuste as datas ou edite o existente.`, 'PERIODO_SOBREPOSTO');
+    const salvo = await precoModel.salvarPeriodo({ id, nome, inicio: b.inicio, fim: b.fim, ...valores });
+    if (!salvo) throw erro(h, 404, 'Período não encontrado.', 'NAO_ENCONTRADO');
+    ok();
+    return true;
+  }
+
+  m = rota.match(/^precos\/periodos\/(\d+)\/remover$/);
+  if (m) {
+    await precoModel.removerPeriodo(idDaRota(m[1], h));
+    ok();
     return true;
   }
 

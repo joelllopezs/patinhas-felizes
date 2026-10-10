@@ -11,7 +11,7 @@ const config = require('./config/agendamento');
 const reservaModel = require('./models/reservaModel');
 const tentativaPinModel = require('./models/tentativaPinModel');
 const controleModel = require('./models/controleModel');
-const precoService = require('./services/precoService');
+const precoModel = require('./models/precoModel');
 const controleRoutes = require('./routes/controleRoutes');
 const reservaService = require('./services/reservaService');
 const comprovanteService = require('./services/comprovanteService');
@@ -557,6 +557,31 @@ function mimeEstatico(
  * O esbuild empacota essa dependência antes de enviarmos /script.js.
  */
 async function obterBrowserBundle() {
+  /*
+   * Na Vercel só a pasta public/ é publicada junto com a função, então
+   * src/script.js pode não existir lá. O `npm run build` já gera
+   * public/script.js; usamos esse arquivo pronto quando estiver na Vercel
+   * ou quando o src não estiver disponível. Em desenvolvimento local
+   * continua empacotando src/script.js na hora (sempre atualizado).
+   */
+  const scriptPronto = path.join(PUBLIC_DIR, 'script.js');
+
+  if (
+    fs.existsSync(scriptPronto) &&
+    (process.env.VERCEL || !fs.existsSync(SRC_SCRIPT))
+  ) {
+    const mtimePronto = fs.statSync(scriptPronto).mtimeMs;
+
+    if (browserBundleCache && browserBundleMtime === mtimePronto) {
+      return browserBundleCache;
+    }
+
+    browserBundleCache = fs.readFileSync(scriptPronto);
+    browserBundleMtime = mtimePronto;
+
+    return browserBundleCache;
+  }
+
   if (
     !fs.existsSync(
       SRC_SCRIPT
@@ -676,30 +701,6 @@ async function servirScriptBrowser(
   );
 }
 
-function moedaCurta(valor) {
-  return Number(valor)
-    .toLocaleString('pt-BR', {
-      minimumFractionDigits: Number.isInteger(Number(valor)) ? 0 : 2,
-      maximumFractionDigits: 2,
-    });
-}
-
-async function aplicarPrecosNoHtml(html) {
-  let p = config.PRECOS;
-  try {
-    p = await controleModel.obterPrecos();
-  } catch (e) {
-    console.error('[PRECOS] Usando valores padrão no site:', e?.message || e);
-  }
-  const menorCreche = Math.min(...Object.values(p.CRECHE));
-  const menorVisita = Math.min(...Object.values(p.DOMICILIAR));
-
-  return html
-    .replace(/\{\{PRECO_HOSPEDAGEM\}\}/g, moedaCurta(p.HOSPEDAGEM_DIARIA))
-    .replace(/\{\{PRECO_CRECHE_MIN\}\}/g, moedaCurta(menorCreche))
-    .replace(/\{\{PRECO_DOMICILIAR_MIN\}\}/g, moedaCurta(menorVisita));
-}
-
 async function servirEstatico(
   pathname,
   res
@@ -764,20 +765,10 @@ async function servirEstatico(
     );
   }
 
-  let conteudo =
+  const conteudo =
     fs.readFileSync(
       caminho
     );
-
-  // Preços do site vêm do painel de controle (módulo Valores).
-  if (arquivo === 'index.html') {
-    conteudo = Buffer.from(
-      await aplicarPrecosNoHtml(
-        conteudo.toString('utf8')
-      ),
-      'utf8'
-    );
-  }
 
   cabecalhosSeguranca(
     res
@@ -1610,6 +1601,12 @@ async function rotear(
     pathname ===
       '/api/configuracoes'
   ) {
+    const hojeSaoPaulo = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+    const tabelaPrecos = await precoModel.obterTabela().catch(() => ({
+      base: precoModel.baseDoCodigo(),
+      periodos: [],
+    }));
+
     enviarJSON(
       res,
       200,
@@ -1630,7 +1627,11 @@ async function rotear(
             config.OWNER_WHATSAPP,
 
           limiteVagasDiario:
-            await controleModel.obterLimiteVagas(),
+            await controleModel
+              .obterLimiteVagas()
+              .catch(
+                () => config.LIMITE_VAGAS_DIARIO
+              ),
 
           maxPets:
             config.MAX_PETS_POR_RESERVA,
@@ -1652,10 +1653,10 @@ async function rotear(
                 1024
             ),
 
-          precos:
-            precoService.precosParaApi(
-              await controleModel.obterPrecos()
-            ),
+          precos: tabelaPrecos.base,
+          periodos: tabelaPrecos.periodos
+            .filter((p) => p.fim >= hojeSaoPaulo)
+            .map(({ nome, inicio, fim, hospedagem, creche, domiciliar }) => ({ nome, inicio, fim, hospedagem, creche, domiciliar })),
         },
       }
     );

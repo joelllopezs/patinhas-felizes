@@ -13,6 +13,7 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
     maxDiasCreche: 31,
     maxDiasDomiciliar: 60,
     maxComprovanteMB: 5,
+    periodos: [],
     precos: {
       hospedagem: 60,
       creche: { 1: 160, 2: 280, 3: 360, 4: 440, 5: 520 },
@@ -122,49 +123,129 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
     return Math.round((b - a) / 86400000) + 1;
   }
 
+  /**
+   * Diárias = períodos iniciados de 24h entre entrada e checkout.
+   * Usa aritmética de calendário em UTC (sem fuso/horário de verão), igual
+   * ao cálculo do servidor, para o valor mostrado ser o mesmo que será cobrado.
+   * Ex.: 01/11 14:00 -> 02/11 14:00 = 1 diária.
+   */
   function calculateHotelNights(
-  dataEntrada,
-  horaEntrada,
-  dataSaida,
-  horaSaida
-) {
-  if (
-    !dataEntrada ||
-    !horaEntrada ||
-    !dataSaida ||
-    !horaSaida
+    dataEntrada,
+    horaEntrada,
+    dataSaida,
+    horaSaida
   ) {
-    return 0;
+    const reData = /^(\d{4})-(\d{2})-(\d{2})$/;
+    const reHora = /^(\d{2}):(\d{2})/;
+
+    const d1 = reData.exec(dataEntrada || '');
+    const d2 = reData.exec(dataSaida || '');
+    const h1 = reHora.exec(horaEntrada || '');
+    const h2 = reHora.exec(horaSaida || '');
+
+    if (!d1 || !d2 || !h1 || !h2) return 0;
+
+    // Ano com menos de 4 dígitos significa data ainda sendo digitada.
+    if (Number(d1[1]) < 1000 || Number(d2[1]) < 1000) return 0;
+
+    const minutosEntrada =
+      Date.UTC(Number(d1[1]), Number(d1[2]) - 1, Number(d1[3])) / 60000 +
+      Number(h1[1]) * 60 + Number(h1[2]);
+
+    const minutosSaida =
+      Date.UTC(Number(d2[1]), Number(d2[2]) - 1, Number(d2[3])) / 60000 +
+      Number(h2[1]) * 60 + Number(h2[2]);
+
+    if (!Number.isFinite(minutosEntrada) || !Number.isFinite(minutosSaida)) {
+      return 0;
+    }
+
+    const diffMin = minutosSaida - minutosEntrada;
+
+    if (diffMin < 0) return 0;
+
+    return Math.max(1, Math.ceil(diffMin / (24 * 60)));
   }
 
-  const entrada = new Date(
-    `${dataEntrada}T${horaEntrada}:00`
-  );
+  /**
+   * Campos de data/hora no padrão brasileiro, independente do navegador/Windows:
+   * data dd/mm/aaaa e hora 24h (HH:MM).
+   * O <input type="date|time"> nativo segue o idioma do navegador (pode vir
+   * mm/dd/yyyy e AM/PM). Aqui o campo visível é texto com máscara, e o campo
+   * original (mesmo id) vira "hidden" guardando o valor ISO (aaaa-mm-dd / HH:MM),
+   * então o restante do código continua lendo .value normalmente.
+   */
+  function aplicarPadraoBR(raiz) {
+    raiz.querySelectorAll('input[type="date"], input[type="time"]').forEach((orig) => {
+      const ehData = orig.type === 'date';
+      const inicial = orig.value || '';
 
-  const saida = new Date(
-    `${dataSaida}T${horaSaida}:00`
-  );
+      const visivel = document.createElement('input');
+      visivel.type = 'text';
+      visivel.inputMode = 'numeric';
+      visivel.autocomplete = 'off';
+      visivel.maxLength = ehData ? 10 : 5;
+      visivel.placeholder = ehData ? 'dd/mm/aaaa' : 'HH:MM';
+      visivel.id = `${orig.id}_br`;
 
-  if (
-    Number.isNaN(entrada.getTime()) ||
-    Number.isNaN(saida.getTime()) ||
-    saida < entrada
-  ) {
-    return 0;
+      const rotulo = raiz.querySelector(`label[for="${orig.id}"]`);
+      if (rotulo) rotulo.setAttribute('for', visivel.id);
+
+      if (ehData) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(inicial);
+        visivel.value = m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+      } else {
+        visivel.value = /^\d{2}:\d{2}/.test(inicial) ? inicial.slice(0, 5) : '';
+      }
+
+      orig.type = 'hidden';
+      orig.parentNode.insertBefore(visivel, orig);
+
+      const converter = (texto) => {
+        if (ehData) {
+          const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(texto);
+          if (!m) return '';
+          const d = Number(m[1]);
+          const mes = Number(m[2]);
+          const a = Number(m[3]);
+          const teste = new Date(Date.UTC(a, mes - 1, d));
+          const ok =
+            a >= 1000 &&
+            teste.getUTCFullYear() === a &&
+            teste.getUTCMonth() === mes - 1 &&
+            teste.getUTCDate() === d;
+          return ok ? `${m[3]}-${m[2]}-${m[1]}` : '';
+        }
+        const m = /^(\d{2}):(\d{2})$/.exec(texto);
+        return m && Number(m[1]) <= 23 && Number(m[2]) <= 59 ? texto : '';
+      };
+
+      const aoDigitar = () => {
+        let n = visivel.value.replace(/\D/g, '').slice(0, ehData ? 8 : 4);
+
+        if (ehData) {
+          if (n.length > 4) n = `${n.slice(0, 2)}/${n.slice(2, 4)}/${n.slice(4)}`;
+          else if (n.length > 2) n = `${n.slice(0, 2)}/${n.slice(2)}`;
+        } else if (n.length > 2) {
+          n = `${n.slice(0, 2)}:${n.slice(2)}`;
+        }
+
+        visivel.value = n;
+
+        const novo = converter(n);
+        const mudou = orig.value !== novo;
+        orig.value = novo;
+        visivel.setCustomValidity(n && !novo && n.length === visivel.maxLength ? 'Valor inválido' : '');
+
+        if (mudou) {
+          orig.dispatchEvent(new Event('input', { bubbles: true }));
+          orig.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      };
+
+      visivel.addEventListener('input', aoDigitar);
+    });
   }
-
-  const diffMs =
-    saida.getTime() -
-    entrada.getTime();
-
-  const horas =
-    diffMs / (1000 * 60 * 60);
-
-  return Math.max(
-    1,
-    Math.ceil(horas / 24)
-  );
-}
 
   function serviceAnimationMarkup(service) {
     const scenes = {
@@ -662,6 +743,102 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
     return body;
   }
 
+  /* ---------- Preços: valor padrão + períodos especiais (por data) ---------- */
+  function periodoDoDia(iso) {
+    return (config.periodos || []).find((p) => iso && iso >= p.inicio && iso <= p.fim) || null;
+  }
+
+  function precoHospedagem(iso) {
+    return (periodoDoDia(iso) || config.precos).hospedagem;
+  }
+
+  function precoCreche(freq, iso) {
+    return (periodoDoDia(iso) || config.precos).creche[freq];
+  }
+
+  function precoDomiciliar(visitas, iso) {
+    return (periodoDoDia(iso) || config.precos).domiciliar[visitas];
+  }
+
+  /** Cada diária usa o valor da sua própria data. */
+  function totalHospedagemPrevisto(entradaISO, dias, pets) {
+    let total = 0;
+    for (let i = 0; i < dias; i += 1) {
+      total += precoHospedagem(entradaISO ? isoMais(entradaISO, i) : '') * pets;
+    }
+    return total;
+  }
+
+  function hospedagemUniforme(entradaISO, dias) {
+    const primeiro = precoHospedagem(entradaISO);
+    for (let i = 1; i < dias; i += 1) {
+      if (precoHospedagem(entradaISO ? isoMais(entradaISO, i) : '') !== primeiro) return false;
+    }
+    return true;
+  }
+
+  function totalDomiciliarPrevisto(visitas, inicioISO, dias) {
+    let total = 0;
+    for (let i = 0; i < dias; i += 1) {
+      total += precoDomiciliar(visitas, inicioISO ? isoMais(inicioISO, i) : '');
+    }
+    return total;
+  }
+
+  function atualizarPrecosCreche() {
+    const inicio = (document.getElementById('dataInicio') || {}).value || '';
+    document.querySelectorAll('#frequencia option').forEach((opcao) => {
+      const v = Number(opcao.value);
+      opcao.textContent = `${v}x por semana — ${formatCurrency(precoCreche(v, inicio))}/mês`;
+    });
+  }
+
+  function atualizarPrecosDomiciliar(inicio) {
+    document.querySelectorAll('.btn-toggle[data-value]').forEach((botao) => {
+      const v = Number(botao.dataset.value);
+      if (v === 1 || v === 2) {
+        botao.textContent = `${v} ${v === 1 ? 'visita' : 'visitas'} — ${formatCurrency(precoDomiciliar(v, inicio))}/dia`;
+      }
+    });
+  }
+
+  /** Cards de serviço: valor padrão + aviso do próximo período especial (se houver). */
+  function renderPrecosCards() {
+    const dmx = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+    const periodos = (config.periodos || []).filter((p) => p.fim >= config.hoje).sort((a, b) => (a.inicio < b.inicio ? -1 : 1));
+    const base = config.precos;
+    const baseCreche = Math.min(...Object.values(base.creche));
+    const baseDomi = Math.min(...Object.values(base.domiciliar));
+
+    const tipos = {
+      hospedagem: { texto: `${formatCurrency(base.hospedagem)}`, unidade: '/diária por pet', valor: (p) => p.hospedagem, atual: base.hospedagem, nota: '/diária' },
+      creche: { prefixo: 'a partir de ', texto: formatCurrency(baseCreche), unidade: '/mês', valor: (p) => Math.min(...Object.values(p.creche)), atual: baseCreche, nota: '/mês' },
+      domiciliar: { prefixo: 'a partir de ', texto: formatCurrency(baseDomi), unidade: '/dia', valor: (p) => Math.min(...Object.values(p.domiciliar)), atual: baseDomi, nota: '/dia' },
+    };
+
+    document.querySelectorAll('[data-price]').forEach((el) => {
+      const t = tipos[el.dataset.price];
+      if (!t) return;
+
+      el.textContent = `${t.prefixo || ''}${t.texto}`;
+      const small = document.createElement('small');
+      small.textContent = t.unidade;
+      el.appendChild(small);
+
+      const card = el.closest('.service-card');
+      if (!card) return;
+      card.querySelectorAll('.service-season').forEach((n) => n.remove());
+
+      const periodo = periodos.find((p) => t.valor(p) !== t.atual);
+      if (periodo) {
+        const nota = document.createElement('span');
+        nota.className = 'service-season';
+        nota.textContent = `${periodo.nome} (${dmx(periodo.inicio)} a ${dmx(periodo.fim)}): ${t.prefixo || ''}${formatCurrency(t.valor(periodo))}${t.nota}`;
+        card.appendChild(nota);
+      }
+    });
+  }
+
   async function loadConfig() {
     try {
       const result = await api('/api/configuracoes');
@@ -684,6 +861,8 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
       };
 
       serverReady = true;
+
+      renderPrecosCards();
 
       document.getElementById('fileHelp').textContent =
         `Tamanho máximo: ${config.maxComprovanteMB} MB.`;
@@ -1019,6 +1198,15 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
     title.textContent =
       `Detalhes — ${SERVICE_LABELS[state.service]}`;
 
+    if (!container._brObserver) {
+      container._brObserver = new MutationObserver(() => {
+        if (container.querySelector('input[type="date"], input[type="time"]')) {
+          aplicarPadraoBR(container);
+        }
+      });
+      container._brObserver.observe(container, { childList: true });
+    }
+
     if (
   state.service ===
     'hospedagem_cao' ||
@@ -1209,10 +1397,7 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
         ? days
         : '';
 
-    const base =
-      days *
-      pets *
-      config.precos.hospedagem;
+    const base = totalHospedagemPrevisto(dataEntrada, days, pets);
 
     document
       .getElementById(
@@ -1225,10 +1410,10 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             `Valor previsto da hospedagem: ` +
             `${formatCurrency(base)} ` +
             `(${days} diária(s) × ` +
-            `${pets} pet(s) × ` +
-            `${formatCurrency(
-              config.precos.hospedagem
-            )}).`
+            `${pets} pet(s)` +
+            (hospedagemUniforme(dataEntrada, days)
+              ? ` × ${formatCurrency(precoHospedagem(dataEntrada))}).`
+              : `, com valores de período especial).`)
           )
         : '';
 
@@ -1274,12 +1459,13 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
     'horaSaida',
     'quantidadePets',
   ].forEach((id) => {
-    document
-      .getElementById(id)
-      .addEventListener(
-        'input',
-        update
-      );
+    const campo = document.getElementById(id);
+
+    // 'input' sozinho pode deixar o valor antigo na tela em alguns
+    // navegadores (campos de data/hora); recalcula em todos os eventos.
+    ['input', 'change', 'keyup', 'blur'].forEach((evento) => {
+      campo.addEventListener(evento, update);
+    });
   });
 
   update();
@@ -1351,8 +1537,7 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
                         : ''
                     }>` +
                     `${value}x por semana — ${formatCurrency(
-                      config.precos
-                        .creche[value]
+                      precoCreche(value, (state.details && state.details.dataInicio) || '')
                     )}/mês` +
                     `</option>`
                 )
@@ -1475,6 +1660,8 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
         };
 
       const updatePeriod = () => {
+        atualizarPrecosCreche();
+
         const start =
           document
             .getElementById(
@@ -1601,8 +1788,7 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             data-value="1"
           >
             1 visita — ${formatCurrency(
-              config.precos
-                .domiciliar[1]
+              precoDomiciliar(1, state.details.dataInicio || '')
             )}/dia
           </button>
 
@@ -1616,8 +1802,7 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             data-value="2"
           >
             2 visitas — ${formatCurrency(
-              config.precos
-                .domiciliar[2]
+              precoDomiciliar(2, state.details.dataInicio || '')
             )}/dia
           </button>
         </div>
@@ -1727,27 +1912,18 @@ const { upload: uploadBlob } = require('@vercel/blob/client');
             '.btn-toggle.selected'
           );
 
-        const daily =
-          selected
-            ? config.precos
-                .domiciliar[
-                  Number(
-                    selected.dataset
-                      .value
-                  )
-                ]
-            : 0;
+        atualizarPrecosDomiciliar(start);
+
+        const visitasSel = selected ? Number(selected.dataset.value) : 0;
+        const estimativa = visitasSel && days > 0 ? totalDomiciliarPrevisto(visitasSel, start, days) : 0;
 
         document
           .getElementById(
             'homeCalculation'
           )
           .textContent =
-          days > 0 &&
-          daily
-            ? `${days} dia(s) — estimativa de ${formatCurrency(
-                days * daily
-              )}.`
+          estimativa
+            ? `${days} dia(s) — estimativa de ${formatCurrency(estimativa)}.`
             : '';
       };
 
@@ -3140,12 +3316,34 @@ if (conviveToggle) {
 
       state.result = result;
       goToStep(STEPS.indexOf('success'));
+
+      abrirWhatsAppDireto(result.whatsappUrl);
       return null;
     } catch (error) {
       return error.message;
     } finally {
       setLoading(false);
     }
+  }
+
+  /**
+   * Depois que o comprovante é enviado e a reserva é criada, abre o WhatsApp
+   * direto com a mensagem pronta. A tela do protocolo aparece por um instante
+   * e continua disponível (com o botão) caso o cliente volte ao site.
+   * Usa navegação na mesma aba: window.open depois de um envio demorado é
+   * bloqueado pelos navegadores de celular.
+   */
+  function abrirWhatsAppDireto(url) {
+    if (typeof url !== 'string' || !/^https:\/\/(wa\.me|api\.whatsapp\.com)\//.test(url)) {
+      return;
+    }
+
+    const aviso = document.getElementById('successRedirect');
+    if (aviso) aviso.hidden = false;
+
+    setTimeout(() => {
+      window.location.assign(url);
+    }, 800);
   }
 
   function renderSuccess() {

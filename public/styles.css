@@ -1596,3 +1596,28 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
 }
 .pausa-aviso[hidden] { display: none; }
 .pausa-aviso::before { content: '⏸ '; }
+
+/* Aviso de abertura automatica do WhatsApp */
+.success-redirect {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+  color: var(--forest);
+  font-weight: 700;
+  text-align: center;
+}
+.success-redirect[hidden] { display: none; }
+
+/* Periodo especial de preco (aviso nos cards de servico) */
+.service-season {
+  display: block;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #FFF1CC;
+  color: #4A3500;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.25;
+}

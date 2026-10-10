@@ -2,6 +2,17 @@
 
 const { PRECOS, SERVICOS } = require('../config/agendamento');
 
+/** Tabela usada quando nenhuma é informada (valores do código, sem períodos especiais). */
+const TABELA_PADRAO = Object.freeze({
+  base: Object.freeze({
+    hospedagem: PRECOS.HOSPEDAGEM_DIARIA,
+    creche: PRECOS.CRECHE,
+    domiciliar: PRECOS.DOMICILIAR,
+    sinal: PRECOS.SINAL_RESERVA,
+  }),
+  periodos: Object.freeze([]),
+});
+
 function inteiro(valor, minimo, maximo, campo) {
   const numero = Number(valor);
 
@@ -16,21 +27,52 @@ function arredondarMoeda(valor) {
   return Math.round((Number(valor) + Number.EPSILON) * 100) / 100;
 }
 
-function aplicarSinal(valorTotal, precos = PRECOS) {
-  const valorSinal = Math.min(precos.SINAL_RESERVA, valorTotal);
+function moedaBR(valor) {
+  return `R$ ${Number(valor).toFixed(2).replace('.', ',')}`;
+}
+
+function somarDias(iso, n) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Valores vigentes numa data: o período especial que a cobre, ou o valor padrão. */
+function valoresDoDia(tabela, iso) {
+  if (iso) {
+    const periodo = (tabela.periodos || []).find((p) => iso >= p.inicio && iso <= p.fim);
+    if (periodo) return periodo;
+  }
+
+  return tabela.base;
+}
+
+function aplicarSinal(valorTotal, sinal) {
+  const valorSinal = Math.min(sinal, valorTotal);
 
   return {
     valorSinal,
     valorAPagarAgora: valorSinal,
-    saldoPendente: arredondarMoeda(
-      Math.max(0, valorTotal - valorSinal)
-    ),
+    saldoPendente: arredondarMoeda(Math.max(0, valorTotal - valorSinal)),
   };
 }
 
+/** Agrupa dias consecutivos com o mesmo valor: [{ n, v }]. */
+function agrupar(valores) {
+  const grupos = [];
+
+  valores.forEach((v) => {
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ultimo.v === v) ultimo.n += 1;
+    else grupos.push({ n: 1, v });
+  });
+
+  return grupos;
+}
+
 /**
- * `precos` segue o formato de config.PRECOS e permite usar a tabela
- * mantida pelo painel de controle. Sem ele, usa os valores padrão.
+ * Calcula o valor de um agendamento NOVO.
+ * Reservas já lançadas guardam o próprio valor no banco e nunca são recalculadas.
  */
 function calcularPreco({
   servico,
@@ -39,157 +81,70 @@ function calcularPreco({
   frequenciaSemanal,
   visitasDia,
   quantidadeDias,
-  precos = PRECOS,
+  entradaISO = null,
+  tabela = TABELA_PADRAO,
 }) {
-  const pets = inteiro(
-    quantidadePets,
-    1,
-    10,
-    'Quantidade de pets'
-  );
+  const pets = inteiro(quantidadePets, 1, 10, 'Quantidade de pets');
+  const sinal = tabela.base.sinal;
 
-  if (
-    servico === SERVICOS.HOSPEDAGEM_CAO ||
-    servico === SERVICOS.HOSPEDAGEM_GATO
-  ) {
-    const totalDiarias = inteiro(
-      diarias,
-      1,
-      60,
-      'Quantidade de diárias'
-    );
+  if (servico === SERVICOS.HOSPEDAGEM_CAO || servico === SERVICOS.HOSPEDAGEM_GATO) {
+    const totalDiarias = inteiro(diarias, 1, 60, 'Quantidade de diárias');
 
-    const valorTotal = arredondarMoeda(
-      totalDiarias *
-        pets *
-        precos.HOSPEDAGEM_DIARIA
+    // Cada diária usa o valor da sua própria data.
+    const porDia = Array.from({ length: totalDiarias }, (_, i) =>
+      valoresDoDia(tabela, entradaISO ? somarDias(entradaISO, i) : null).hospedagem
     );
+    const grupos = agrupar(porDia);
+    const valorTotal = arredondarMoeda(porDia.reduce((t, v) => t + v, 0) * pets);
 
     return {
-      valorUnitario: precos.HOSPEDAGEM_DIARIA,
+      valorUnitario: grupos[0].v,
       valorTotal,
-
-      ...aplicarSinal(valorTotal, precos),
-
+      ...aplicarSinal(valorTotal, sinal),
       descricao:
-        `${totalDiarias} diária(s) × ` +
-        `${pets} pet(s) × ` +
-        `R$ ${precos.HOSPEDAGEM_DIARIA
-          .toFixed(2)
-          .replace('.', ',')}`,
+        grupos.length === 1
+          ? `${totalDiarias} diária(s) × ${pets} pet(s) × ${moedaBR(grupos[0].v)}`
+          : `${grupos.map((g) => `${g.n} diária(s) × ${moedaBR(g.v)}`).join(' + ')} (por pet) × ${pets} pet(s)`,
     };
   }
 
   if (servico === SERVICOS.CRECHE) {
-    const frequencia = inteiro(
-      frequenciaSemanal,
-      1,
-      5,
-      'Frequência semanal'
-    );
-
-    const valorTotal =
-      precos.CRECHE[frequencia];
+    const frequencia = inteiro(frequenciaSemanal, 1, 5, 'Frequência semanal');
+    const vigente = valoresDoDia(tabela, entradaISO);
+    const valorTotal = vigente.creche[frequencia];
 
     return {
       valorUnitario: valorTotal,
       valorTotal,
-
-      ...aplicarSinal(valorTotal, precos),
-
-      descricao:
-        `Plano mensal de ${frequencia}x por semana`,
+      ...aplicarSinal(valorTotal, sinal),
+      descricao: `Plano mensal de ${frequencia}x por semana${vigente.nome ? ` — ${vigente.nome}` : ''}`,
     };
   }
 
   if (servico === SERVICOS.DOMICILIAR) {
-    const visitas = inteiro(
-      visitasDia,
-      1,
-      2,
-      'Visitas por dia'
+    const visitas = inteiro(visitasDia, 1, 2, 'Visitas por dia');
+    const dias = inteiro(quantidadeDias, 1, 60, 'Quantidade de dias');
+
+    const porDia = Array.from({ length: dias }, (_, i) =>
+      valoresDoDia(tabela, entradaISO ? somarDias(entradaISO, i) : null).domiciliar[visitas]
     );
-
-    const dias = inteiro(
-      quantidadeDias,
-      1,
-      60,
-      'Quantidade de dias'
-    );
-
-    const valorDiario =
-      precos.DOMICILIAR[visitas];
-
-    const valorTotal =
-      valorDiario * dias;
+    const grupos = agrupar(porDia);
+    const valorTotal = arredondarMoeda(porDia.reduce((t, v) => t + v, 0));
 
     return {
-      valorUnitario: valorDiario,
+      valorUnitario: grupos[0].v,
       valorTotal,
-
-      ...aplicarSinal(valorTotal, precos),
-
+      ...aplicarSinal(valorTotal, sinal),
       descricao:
-        `${dias} dia(s) × ` +
-        `${visitas} visita(s) por dia — ` +
-        `R$ ${valorDiario
-          .toFixed(2)
-          .replace('.', ',')} por dia`,
+        grupos.length === 1
+          ? `${dias} dia(s) × ${visitas} visita(s) por dia — ${moedaBR(grupos[0].v)} por dia`
+          : `${visitas} visita(s) por dia — ${grupos.map((g) => `${g.n} dia(s) × ${moedaBR(g.v)}`).join(' + ')}`,
     };
   }
 
-  throw new Error(
-    'Não foi possível calcular o valor do serviço.'
-  );
-}
-
-const LIMITE_VALOR = 100000;
-
-function valorMoeda(v, campo, { permiteZero = false } = {}) {
-  if (v === '' || v === null || v === undefined || typeof v === 'boolean') {
-    throw new Error(`Informe ${campo}.`);
-  }
-  const n = typeof v === 'string' ? Number(v.replace(',', '.')) : Number(v);
-  if (!Number.isFinite(n) || n < 0 || n > LIMITE_VALOR || (!permiteZero && n === 0)) {
-    throw new Error(`Valor inválido em ${campo}.`);
-  }
-  return arredondarMoeda(n);
-}
-
-/**
- * Converte o formato da API ({hospedagem, creche:{1..5}, domiciliar:{1,2}, sinal})
- * para o formato interno (config.PRECOS), validando tudo.
- */
-function normalizarPrecos(entrada) {
-  if (!entrada || typeof entrada !== 'object') throw new Error('Valores inválidos.');
-  const creche = {};
-  for (let i = 1; i <= 5; i += 1) {
-    creche[i] = valorMoeda(entrada.creche?.[i], `Creche ${i}x por semana`);
-  }
-  const domiciliar = {};
-  for (let i = 1; i <= 2; i += 1) {
-    domiciliar[i] = valorMoeda(entrada.domiciliar?.[i], `Visita em casa (${i} por dia)`);
-  }
-  return {
-    HOSPEDAGEM_DIARIA: valorMoeda(entrada.hospedagem, 'Hospedagem (diária)'),
-    CRECHE: creche,
-    DOMICILIAR: domiciliar,
-    SINAL_RESERVA: valorMoeda(entrada.sinal, 'Sinal', { permiteZero: true }),
-  };
-}
-
-/** Formato interno (config.PRECOS) -> formato da API/painel/site. */
-function precosParaApi(p = PRECOS) {
-  return {
-    hospedagem: p.HOSPEDAGEM_DIARIA,
-    creche: { ...p.CRECHE },
-    domiciliar: { ...p.DOMICILIAR },
-    sinal: p.SINAL_RESERVA,
-  };
+  throw new Error('Não foi possível calcular o valor do serviço.');
 }
 
 module.exports = {
   calcularPreco,
-  normalizarPrecos,
-  precosParaApi,
 };
